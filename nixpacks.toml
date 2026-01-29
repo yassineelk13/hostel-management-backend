@@ -1,8 +1,5 @@
-[phases.setup]
-nixPkgs = ["jdk21"]
-
 [phases.build]
-cmds = ["./mvnw clean install -DskipTests -Dspring.profiles.active=production"]
+cmds = ["./mvnw clean package -DskipTests"]
 
 [start]
 cmd = "java -Dserver.port=$PORT -Dspring.profiles.active=production -jar target/*.jar"
