@@ -12,14 +12,14 @@ import java.util.Arrays;
 @Configuration
 public class WebConfig {
 
-    @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173}")
+    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}")
     private String allowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ✅ Configuration depuis application.properties
+        // ✅ Configuration depuis variable d'environnement
         configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
 
         // ✅ Méthodes HTTP autorisées
