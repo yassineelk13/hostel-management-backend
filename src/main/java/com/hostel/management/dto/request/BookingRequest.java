@@ -19,10 +19,11 @@ public class BookingRequest {
 
     @NotBlank(message = "Téléphone du client est obligatoire")
     @Pattern(
-            regexp = "^\\+?[0-9]{10,15}$",
-            message = "Format de téléphone invalide"
+            regexp = "^[+0-9][0-9\\s\\-().]{7,19}$",
+            message = "Le téléphone doit contenir uniquement des chiffres et symboles valides (+, -, espaces, parenthèses)"
     )
     private String guestPhone;
+
 
     @NotNull(message = "Date d'arrivée est obligatoire")
     @FutureOrPresent(message = "Date d'arrivée doit être aujourd'hui ou future")
