@@ -162,6 +162,7 @@ public class EmailService {
     }
 
     // ===== 🆕 NOUVEAU TEMPLATE EMAIL CONFIRMATION SIMPLIFIÉ (STYLE RÉINITIALISATION) =====
+    // ===== 🆕 TEMPLATE EMAIL CONFIRMATION AVEC SERVICES ET PRIX (ANTI-SPAM) =====
     private String buildBookingConfirmationEmail(Booking booking) {
         HostelSettings settings = hostelSettingsService.getSettings();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -172,29 +173,21 @@ public class EmailService {
         html.append("<body style='font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;'>");
         html.append("<div style='max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);'>");
 
-        // ✅ Header simple (même style que réinitialisation)
+        // ✅ Header simple (même style qui marche)
         html.append("<div style='background: linear-gradient(135deg, #d97339 0%, #c75a2a 100%); color: white; padding: 30px; text-align: center;'>");
         html.append("<h1 style='margin: 0; font-size: 28px;'>").append(hostelName).append("</h1>");
         html.append("<p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>Booking Confirmation</p>");
         html.append("</div>");
 
-        // ✅ Content simple et épuré
+        // ✅ Content simple
         html.append("<div style='padding: 40px 30px;'>");
 
-        // Message de confirmation simple
+        // Message de confirmation
         html.append("<h2 style='color: #2c3e50; margin-top: 0;'>Your booking is confirmed</h2>");
         html.append("<p style='color: #555; line-height: 1.6;'>Hello <strong>").append(booking.getGuestName()).append("</strong>,</p>");
         html.append("<p style='color: #555; line-height: 1.6;'>Thank you for your reservation. We look forward to welcoming you.</p>");
 
-        // ✅ Box référence (style code de vérification)
-        html.append("<div style='background-color: #f8f9fa; border: 2px dashed #d97339; border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;'>");
-        html.append("<p style='margin: 0; color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;'>Booking Reference</p>");
-        html.append("<p style='margin: 10px 0 0 0; font-size: 32px; font-weight: bold; color: #d97339; letter-spacing: 4px;'>");
-        html.append(booking.getBookingReference());
-        html.append("</p>");
-        html.append("</div>");
-
-        // ✅ Informations essentielles SEULEMENT (format simple)
+        // ✅ Informations de séjour (format simple)
         html.append("<div style='background-color: #f8f9fa; border-radius: 10px; padding: 20px; margin: 20px 0;'>");
 
         html.append("<p style='margin: 10px 0; color: #555; line-height: 1.8;'>");
@@ -208,18 +201,45 @@ public class EmailService {
         // ✅ Lits (simple)
         if (!booking.getBeds().isEmpty()) {
             html.append("<p style='margin: 10px 0; color: #555; line-height: 1.8;'>");
-            html.append("<strong>Your bed(s):</strong> ");
-            booking.getBeds().forEach(bed -> {
+            html.append("<strong>Room and bed:</strong> ");
+            boolean first = true;
+            for (var bed : booking.getBeds()) {
+                if (!first) html.append(", ");
                 html.append("Room ").append(bed.getRoom().getRoomNumber());
                 html.append(" - Bed ").append(bed.getBedNumber());
-                html.append(" | ");
-            });
+                first = false;
+            }
             html.append("</p>");
         }
 
+        // ✅ NOUVEAU : Services (format texte simple, pas de liste à puces)
+        if (!booking.getServices().isEmpty()) {
+            html.append("<p style='margin: 15px 0 5px 0; color: #555; line-height: 1.8;'>");
+            html.append("<strong>Included services:</strong>");
+            html.append("</p>");
+
+            for (var service : booking.getServices()) {
+                html.append("<p style='margin: 5px 0 5px 20px; color: #666; line-height: 1.6;'>");
+                html.append(service.getName());
+                html.append("</p>");
+            }
+        }
+
+        // ✅ Pack si présent (simple)
+        if (booking.getPack() != null) {
+            html.append("<p style='margin: 15px 0 5px 0; color: #555; line-height: 1.8;'>");
+            html.append("<strong>Package:</strong> ").append(booking.getPack().getName());
+            html.append("</p>");
+        }
+
+        // ✅ NOUVEAU : Prix (discret, pas en gros)
+        html.append("<p style='margin: 15px 0 5px 0; color: #555; line-height: 1.8;'>");
+        html.append("<strong>Amount:</strong> ").append(booking.getTotalPrice()).append(" MAD");
+        html.append("</p>");
+
         html.append("</div>");
 
-        // ✅ Code d'accès (style code de vérification - TRÈS IMPORTANT)
+        // ✅ Code d'accès (style qui marche)
         html.append("<div style='background-color: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0;'>");
         html.append("<p style='margin: 0; color: #e65100; font-size: 14px;'>");
         html.append("<strong>Door access code: ").append(settings.getDoorCode()).append("</strong>");
@@ -228,19 +248,21 @@ public class EmailService {
 
         // ✅ Infos contact (minimaliste)
         html.append("<p style='color: #555; font-size: 14px; line-height: 1.6; margin: 20px 0;'>");
-        html.append("Address: ").append(settings.getAddress()).append("<br>");
-        html.append("Phone: ").append(settings.getPhone()).append("<br>");
-        html.append("WiFi: ").append(settings.getWifiPassword());
+        html.append("Address : ").append(settings.getAddress()).append("<br>");
+        html.append("Phone : ").append(settings.getPhone()).append("<br>");
+        html.append("Email : ").append(settings.getEmail()).append("<br>");
+        html.append("WiFi : ").append(settings.getWifiPassword());
         html.append("</p>");
 
-        // ✅ Message de fin simple
+
+        // ✅ Message de fin
         html.append("<p style='color: #888; font-size: 13px; line-height: 1.6;'>");
         html.append("If you have any questions, please contact us directly.");
         html.append("</p>");
 
         html.append("</div>");
 
-        // ✅ Footer simple (même style que réinitialisation)
+        // ✅ Footer simple (style qui marche)
         html.append("<div style='background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;'>");
         html.append("<p style='color: #6c757d; font-size: 12px; margin: 5px 0;'>&copy; 2026 ").append(hostelName).append("</p>");
         html.append("<p style='color: #6c757d; font-size: 12px; margin: 5px 0;'>All rights reserved</p>");
@@ -251,4 +273,5 @@ public class EmailService {
 
         return html.toString();
     }
+
 }
