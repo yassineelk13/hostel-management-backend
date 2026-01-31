@@ -213,17 +213,21 @@ public class EmailService {
         }
 
         // ✅ NOUVEAU : Services (format texte simple, pas de liste à puces)
+        // ✅ Services (avec liste à puces)
         if (!booking.getServices().isEmpty()) {
             html.append("<p style='margin: 15px 0 5px 0; color: #555; line-height: 1.8;'>");
             html.append("<strong>Included services:</strong>");
             html.append("</p>");
 
+            html.append("<ul style='margin: 5px 0 10px 20px; padding-left: 20px; color: #666;'>");
             for (var service : booking.getServices()) {
-                html.append("<p style='margin: 5px 0 5px 20px; color: #666; line-height: 1.6;'>");
+                html.append("<li style='margin: 5px 0; line-height: 1.6;'>");
                 html.append(service.getName());
-                html.append("</p>");
+                html.append("</li>");
             }
+            html.append("</ul>");
         }
+
 
         // ✅ Pack si présent (simple)
         if (booking.getPack() != null) {
