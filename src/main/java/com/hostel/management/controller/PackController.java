@@ -44,4 +44,6 @@ public class PackController {
         List<PackResponse> packs = packService.getPacksByRoomType(roomType);
         return ResponseEntity.ok(ApiResponse.success("Packs récupérés par type", packs));
     }
+
+
 }

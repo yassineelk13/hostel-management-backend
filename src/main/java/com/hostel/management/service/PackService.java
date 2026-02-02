@@ -106,6 +106,30 @@ public class PackService {
         packRepository.save(pack);
     }
 
+    // ✅✅ NOUVEAU : HARD DELETE (suppression définitive)
+    @Transactional
+    public void deletePackPermanently(Long id) {
+        Pack pack = packRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Pack non trouvé"));
+
+        // Supprime les photos de Cloudinary
+        if (pack.getPhotos() != null && !pack.getPhotos().isEmpty()) {
+            log.info("Suppression de {} photos du pack {}", pack.getPhotos().size(), id);
+            pack.getPhotos().forEach(photoUrl -> {
+                try {
+                    cloudinaryService.deleteImage(photoUrl);
+                    log.info("Photo supprimée de Cloudinary: {}", photoUrl);
+                } catch (Exception e) {
+                    log.warn("Erreur lors de la suppression de la photo: {}", photoUrl, e);
+                }
+            });
+        }
+
+        // Supprime définitivement de la base de données
+        packRepository.deleteById(id);
+        log.info("Pack {} supprimé définitivement (hard delete)", id);
+    }
+
     // ✅ AJOUTER @Transactional(readOnly = true)
     @Transactional(readOnly = true)
     public Pack getPackById(Long id) {

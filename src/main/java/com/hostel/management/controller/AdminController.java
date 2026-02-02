@@ -10,11 +10,13 @@ import com.hostel.management.entity.Booking;
 import com.hostel.management.entity.HostelSettings;
 import com.hostel.management.entity.Pack;
 import com.hostel.management.entity.Service;
+import com.hostel.management.exception.ResourceNotFoundException;
 import com.hostel.management.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -158,10 +160,30 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("Pack mis à jour", pack));
     }
 
+    // ✅ SOFT DELETE - Désactivation (garde les données)
     @DeleteMapping("/packs/{id}")
     public ResponseEntity<ApiResponse<Void>> deletePack(@PathVariable Long id) {
+        log.info("⚠️ Désactivation du pack ID: {} (soft delete)", id);
         packService.deletePack(id);
-        return ResponseEntity.ok(ApiResponse.success("Pack supprimé", null));
+        return ResponseEntity.ok(ApiResponse.success("Pack désactivé avec succès", null));
+    }
+
+    // ✅✅ NOUVEAU - HARD DELETE - Suppression définitive
+    @DeleteMapping("/packs/{id}/permanent")
+    public ResponseEntity<ApiResponse<Void>> deletePackPermanently(@PathVariable Long id) {
+        log.info("🗑️ Suppression définitive du pack ID: {} (hard delete)", id);
+        try {
+            packService.deletePackPermanently(id);
+            return ResponseEntity.ok(ApiResponse.success("Pack supprimé définitivement avec succès", null));
+        } catch (ResourceNotFoundException e) {
+            log.error("Pack non trouvé: {}", id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Erreur lors de la suppression définitive du pack {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Erreur lors de la suppression: " + e.getMessage()));
+        }
     }
 
     // ===== HOSTEL SETTINGS =====
