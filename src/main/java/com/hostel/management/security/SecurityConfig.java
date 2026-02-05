@@ -62,7 +62,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/bookings/reference/**").permitAll()
 
                         // ===== ADMIN =====
+                        // ===== ADMIN =====
+                        .requestMatchers("/api/admin/migration/**").permitAll()  // ✅ MIGRATION TEMPORAIRE
                         .requestMatchers("/api/admin/**").authenticated()
+
 
                         .anyRequest().authenticated()
                 )
