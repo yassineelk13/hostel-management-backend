@@ -32,7 +32,8 @@ public class RoomService {
 
     @Transactional
     public RoomResponse createRoom(RoomRequest request) {
-        if (roomRepository.existsByRoomNumber(request.getRoomNumber())) {
+        // ✅ MODIFIÉ : Vérifie parmi les chambres actives seulement
+        if (roomRepository.existsByRoomNumberAndNotDeleted(request.getRoomNumber())) {
             throw new IllegalArgumentException("Numéro de chambre déjà existant");
         }
 
@@ -45,6 +46,7 @@ public class RoomService {
                 .pricePerNight(request.getPricePerNight())
                 .photos(uploadedPhotos)
                 .isActive(true)
+                .deleted(false)  // ✅ AJOUTÉ
                 .build();
 
         room = roomRepository.save(room);
@@ -60,6 +62,7 @@ public class RoomService {
                     .room(room)
                     .bedNumber(String.valueOf(i))
                     .isAvailable(true)
+                    .deleted(false)  // ✅ AJOUTÉ
                     .build();
             beds.add(bedRepository.save(bed));
         }
@@ -71,11 +74,13 @@ public class RoomService {
 
     @Transactional
     public RoomResponse updateRoom(Long id, RoomRequest request) {
-        Room room = roomRepository.findById(id)
+        // ✅ MODIFIÉ : Cherche parmi les chambres actives
+        Room room = roomRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Chambre non trouvée"));
 
+        // ✅ MODIFIÉ : Vérifie le numéro parmi les chambres actives
         if (!room.getRoomNumber().equals(request.getRoomNumber())
-                && roomRepository.existsByRoomNumber(request.getRoomNumber())) {
+                && roomRepository.existsByRoomNumberAndNotDeleted(request.getRoomNumber())) {
             throw new IllegalArgumentException("Numéro de chambre déjà existant");
         }
 
@@ -101,7 +106,6 @@ public class RoomService {
 
         room = roomRepository.save(room);
 
-        // ✅ Force le chargement des collections
         if (room.getBeds() != null) {
             room.getBeds().size();
         }
@@ -114,36 +118,40 @@ public class RoomService {
 
     @Transactional
     public void deleteRoom(Long id) {
-        Room room = roomRepository.findById(id)
+        // ✅ MODIFIÉ : Cherche parmi les chambres actives
+        Room room = roomRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Chambre non trouvée"));
 
-        if (room.getPhotos() != null) {
-            room.getPhotos().forEach(photoUrl -> {
-                try {
-                    cloudinaryService.deleteImage(photoUrl);
-                } catch (Exception e) {
-                    log.warn("Failed to delete photo during room deletion: {}", photoUrl);
-                }
-            });
+        // ✅ SOFT DELETE : Marque comme supprimé
+        room.setDeleted(true);
+        room.setActive(false);
+
+        // ✅ Marque aussi les lits comme supprimés
+        if (room.getBeds() != null) {
+            for (Bed bed : room.getBeds()) {
+                bed.setDeleted(true);
+            }
         }
 
-        room.setActive(false);
         roomRepository.save(room);
+        log.info("✅ Chambre {} marquée comme supprimée (soft delete)", room.getRoomNumber());
+
+        // ✅ NOTE : On NE supprime PAS les photos de Cloudinary
+        // pour garder l'historique si besoin de restaurer
     }
 
     @Transactional(readOnly = true)
     public RoomResponse getRoomById(Long id) {
         log.debug("getRoomById - ID: {}", id);
 
-        Room room = roomRepository.findById(id)
+        // ✅ MODIFIÉ : Cherche parmi les chambres actives
+        Room room = roomRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Chambre non trouvée"));
 
-        // ✅✅✅ LIGNE CRITIQUE AJOUTÉE
         if (room.getPhotos() != null) {
             log.debug("Chargement de {} photos pour la chambre {}", room.getPhotos().size(), room.getRoomNumber());
         }
 
-        // ✅ Force le chargement des lits
         if (room.getBeds() != null) {
             log.debug("Chargement de {} lits pour la chambre {}", room.getBeds().size(), room.getRoomNumber());
         }
@@ -156,7 +164,8 @@ public class RoomService {
         log.info("getAllRooms - Début de la récupération");
 
         try {
-            List<Room> rooms = roomRepository.findByIsActiveTrue();
+            // ✅ MODIFIÉ : Liste seulement les chambres actives ET non supprimées
+            List<Room> rooms = roomRepository.findByIsActiveTrueAndNotDeleted();
             log.info("Chambres trouvées dans la DB: {}", rooms.size());
 
             if (rooms.isEmpty()) {
@@ -168,13 +177,11 @@ public class RoomService {
                 try {
                     log.debug("Traitement de la chambre: {}", room.getRoomNumber());
 
-                    // ✅ FORCE LE CHARGEMENT DES PHOTOS
                     if (room.getPhotos() != null) {
                         int photosCount = room.getPhotos().size();
                         log.debug("Chambre {} a {} photos", room.getRoomNumber(), photosCount);
                     }
 
-                    // ✅ FORCE LE CHARGEMENT DES LITS
                     if (room.getBeds() != null) {
                         int bedsCount = room.getBeds().size();
                         log.debug("Chambre {} a {} lits", room.getRoomNumber(), bedsCount);
@@ -198,7 +205,6 @@ public class RoomService {
             throw e;
         }
     }
-
     @Transactional(readOnly = true)
     public List<RoomResponse> getAvailableRooms(LocalDate checkIn, LocalDate checkOut) {
         log.info("getAvailableRooms - De {} à {}", checkIn, checkOut);
@@ -209,12 +215,10 @@ public class RoomService {
         return rooms.stream()
                 .map(room -> {
                     try {
-                        // ✅ Force le chargement des photos
                         if (room.getPhotos() != null) {
                             room.getPhotos().size();
                         }
 
-                        // ✅ Force le chargement des lits
                         if (room.getBeds() != null) {
                             room.getBeds().size();
                         }
@@ -237,7 +241,8 @@ public class RoomService {
 
     @Transactional
     public RoomResponse createRoomWithFiles(RoomRequest request, List<MultipartFile> photoFiles) {
-        if (roomRepository.existsByRoomNumber(request.getRoomNumber())) {
+        // ✅ MODIFIÉ : Vérifie parmi les chambres actives
+        if (roomRepository.existsByRoomNumberAndNotDeleted(request.getRoomNumber())) {
             throw new IllegalArgumentException("Numéro de chambre déjà existant");
         }
 
@@ -269,6 +274,7 @@ public class RoomService {
                 .pricePerNight(request.getPricePerNight())
                 .photos(uploadedPhotos)
                 .isActive(true)
+                .deleted(false)  // ✅ AJOUTÉ
                 .build();
 
         room = roomRepository.save(room);
@@ -284,6 +290,7 @@ public class RoomService {
                     .room(room)
                     .bedNumber(String.valueOf(i))
                     .isAvailable(true)
+                    .deleted(false)  // ✅ AJOUTÉ
                     .build();
             beds.add(bedRepository.save(bed));
         }
@@ -344,6 +351,7 @@ public class RoomService {
 
             if (beds != null) {
                 bedResponses = beds.stream()
+                        .filter(bed -> !bed.isDeleted())  // ✅ AJOUTÉ : Ignore deleted beds
                         .map(bed -> {
                             try {
                                 return BedResponse.builder()
@@ -368,7 +376,7 @@ public class RoomService {
                     .description(room.getDescription())
                     .pricePerNight(room.getPricePerNight())
                     .photos(room.getPhotos() != null ? room.getPhotos() : new ArrayList<>())
-                    .totalBeds(room.getBeds() != null ? room.getBeds().size() : 0)
+                    .totalBeds(bedResponses.size())  // ✅ MODIFIÉ : Compte seulement les lits actifs
                     .availableBeds(bedResponses.size())
                     .isActive(room.isActive())
                     .beds(bedResponses)

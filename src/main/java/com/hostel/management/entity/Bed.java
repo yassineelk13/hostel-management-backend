@@ -14,7 +14,8 @@ import java.util.List;
         name = "beds",
         indexes = {
                 @Index(name = "idx_bed_room", columnList = "room_id"),
-                @Index(name = "idx_bed_available", columnList = "isAvailable")
+                @Index(name = "idx_bed_available", columnList = "isAvailable"),
+                @Index(name = "idx_bed_deleted", columnList = "deleted")  // ✅ NOUVEAU INDEX
         },
         uniqueConstraints = {
                 @UniqueConstraint(
@@ -35,8 +36,8 @@ public class Bed {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
-    @JsonBackReference  // ✅ Empêche la sérialisation de room (évite boucle)
-    @ToString.Exclude  // ✅ Évite boucle dans toString()
+    @JsonBackReference
+    @ToString.Exclude
     private Room room;
 
     @Column(nullable = false, length = 10)
@@ -46,9 +47,14 @@ public class Bed {
     @Builder.Default
     private boolean isAvailable = true;
 
+    // ✅ NOUVEAU CHAMP : SOFT DELETE
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
+
     @ManyToMany(mappedBy = "beds", fetch = FetchType.LAZY)
-    @JsonIgnore  // ✅ Ne pas sérialiser les bookings
-    @ToString.Exclude  // ✅ Évite boucle dans toString()
+    @JsonIgnore
+    @ToString.Exclude
     @Builder.Default
     private List<Booking> bookings = new ArrayList<>();
 
@@ -68,7 +74,6 @@ public class Bed {
         updatedAt = LocalDateTime.now();
     }
 
-    // ✅ MÉTHODE TRANSIENT (ne cause pas de LazyInitializationException)
     @Transient
     @JsonIgnore
     public String getRoomNumber() {

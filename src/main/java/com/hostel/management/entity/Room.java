@@ -17,7 +17,8 @@ import java.util.List;
         name = "rooms",
         indexes = {
                 @Index(name = "idx_room_type", columnList = "roomType"),
-                @Index(name = "idx_room_active", columnList = "isActive")
+                @Index(name = "idx_room_active", columnList = "isActive"),
+                @Index(name = "idx_room_deleted", columnList = "deleted")  // ✅ NOUVEAU INDEX
         }
 )
 @Data
@@ -30,7 +31,7 @@ public class Room {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 10)
+    @Column(nullable = false, length = 10)  // ✅ ENLEVÉ unique = true
     @NotBlank(message = "Le numéro de chambre est requis")
     private String roomNumber;
 
@@ -61,14 +62,19 @@ public class Room {
             orphanRemoval = true,
             fetch = FetchType.LAZY
     )
-    @JsonManagedReference  // ✅ Permet la sérialisation des beds
-    @ToString.Exclude  // ✅ Évite boucle dans toString()
+    @JsonManagedReference
+    @ToString.Exclude
     @Builder.Default
     private List<Bed> beds = new ArrayList<>();
 
     @Column(nullable = false)
     @Builder.Default
     private boolean isActive = true;
+
+    // ✅ NOUVEAU CHAMP : SOFT DELETE
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -98,6 +104,7 @@ public class Room {
     public int getAvailableBedsCount() {
         if (beds == null) return 0;
         return (int) beds.stream()
+                .filter(bed -> !bed.isDeleted())  // ✅ MODIFIÉ : ignore deleted beds
                 .filter(Bed::isAvailable)
                 .count();
     }

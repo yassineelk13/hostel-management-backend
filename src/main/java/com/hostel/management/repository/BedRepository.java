@@ -13,14 +13,21 @@ import java.util.Optional;
 @Repository
 public interface BedRepository extends JpaRepository<Bed, Long> {
 
-    List<Bed> findByRoomId(Long roomId);
+    // ✅ MODIFIÉ : Lits non supprimés d'une chambre
+    @Query("SELECT b FROM Bed b WHERE b.room.id = :roomId AND b.deleted = false")
+    List<Bed> findByRoomIdAndNotDeleted(@Param("roomId") Long roomId);
 
-    // ✅ NOUVEAU : Trouver un lit spécifique dans une chambre
-    Optional<Bed> findByRoomIdAndBedNumber(Long roomId, String bedNumber);
+    // ✅ MODIFIÉ : Trouver un lit spécifique non supprimé
+    @Query("SELECT b FROM Bed b WHERE b.room.id = :roomId AND b.bedNumber = :bedNumber AND b.deleted = false")
+    Optional<Bed> findByRoomIdAndBedNumberAndNotDeleted(
+            @Param("roomId") Long roomId,
+            @Param("bedNumber") String bedNumber
+    );
 
-    // ✅ Requête de disponibilité (déjà bonne)
+    // ✅ MODIFIÉ : Lits disponibles (non supprimés)
     @Query("SELECT b FROM Bed b " +
             "WHERE b.room.id = :roomId " +
+            "AND b.deleted = false " +
             "AND b.id NOT IN (" +
             "  SELECT bed.id FROM Booking bk " +
             "  JOIN bk.beds bed " +
@@ -34,9 +41,11 @@ public interface BedRepository extends JpaRepository<Bed, Long> {
             @Param("checkOut") LocalDate checkOut
     );
 
-    // ✅ NOUVEAU : Tous les lits disponibles pour des dates (toutes chambres)
+    // ✅ MODIFIÉ : Tous les lits disponibles (non supprimés)
     @Query("SELECT b FROM Bed b " +
             "WHERE b.room.isActive = true " +
+            "AND b.room.deleted = false " +
+            "AND b.deleted = false " +
             "AND b.id NOT IN (" +
             "  SELECT bed.id FROM Booking bk " +
             "  JOIN bk.beds bed " +
@@ -49,9 +58,11 @@ public interface BedRepository extends JpaRepository<Bed, Long> {
             @Param("checkOut") LocalDate checkOut
     );
 
-    // ✅ NOUVEAU : Compter les lits disponibles
+    // ✅ MODIFIÉ : Compter les lits disponibles (non supprimés)
     @Query("SELECT COUNT(b) FROM Bed b " +
             "WHERE b.room.isActive = true " +
+            "AND b.room.deleted = false " +
+            "AND b.deleted = false " +
             "AND b.id NOT IN (" +
             "  SELECT bed.id FROM Booking bk " +
             "  JOIN bk.beds bed " +
@@ -63,4 +74,9 @@ public interface BedRepository extends JpaRepository<Bed, Long> {
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut
     );
+
+    // ✅ GARDÉ pour usage interne
+    List<Bed> findByRoomId(Long roomId);
+
+    Optional<Bed> findByRoomIdAndBedNumber(Long roomId, String bedNumber);
 }
