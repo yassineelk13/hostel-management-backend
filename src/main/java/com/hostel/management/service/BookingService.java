@@ -12,9 +12,11 @@ import com.hostel.management.repository.PackRepository;
 import com.hostel.management.repository.ServiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import com.hostel.management.entity.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+
+
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
@@ -24,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Service
+@org.springframework.stereotype.Service
 @RequiredArgsConstructor
 @Slf4j
 public class BookingService {
@@ -74,9 +76,13 @@ public class BookingService {
         }
 
         List<com.hostel.management.entity.Service> services = new ArrayList<>();
-        if (request.getServiceIds() != null && !request.getServiceIds().isEmpty()) {
-            services = serviceRepository.findAllById(request.getServiceIds());
 
+        if (pack != null) {
+            // Pack → services inclus dans le pack directement
+            services = pack.getIncludedServices();
+        } else if (request.getServiceIds() != null && !request.getServiceIds().isEmpty()) {
+            // Réservation normale → services choisis par le client
+            services = serviceRepository.findAllById(request.getServiceIds());
             if (services.size() != request.getServiceIds().size()) {
                 throw new ResourceNotFoundException("Un ou plusieurs services non trouvés");
             }
@@ -168,28 +174,31 @@ public class BookingService {
 
     private BigDecimal calculateTotalPrice(
             List<Bed> beds,
-            List<com.hostel.management.entity.Service> services,
+            List<Service> services,
             Pack pack,
-            long numberOfNights) {
-
+            long numberOfNights
+    ) {
         BigDecimal total = BigDecimal.ZERO;
 
         if (pack != null) {
-            total = total.add(pack.getPromoPrice());
-        } else {
-            for (Bed bed : beds) {
-                BigDecimal bedPrice = bed.getRoom().getPricePerNight()
-                        .multiply(BigDecimal.valueOf(numberOfNights));
-                total = total.add(bedPrice);
-            }
+            // ✅ Pack = prix fixe tout compris, on s'arrête là
+            return pack.getPromoPrice();
         }
 
-        for (com.hostel.management.entity.Service service : services) {
+        // Calcul normal sans pack
+        for (Bed bed : beds) {
+            BigDecimal bedPrice = bed.getRoom().getPricePerNight()
+                    .multiply(BigDecimal.valueOf(numberOfNights));
+            total = total.add(bedPrice);
+        }
+
+        for (Service service : services) {
             total = total.add(service.calculateTotalPrice((int) numberOfNights));
         }
 
         return total;
     }
+
 
     private String generateAccessCode() {
         return String.format("%06d", SECURE_RANDOM.nextInt(1000000));
