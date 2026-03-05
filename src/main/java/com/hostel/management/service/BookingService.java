@@ -16,8 +16,6 @@ import com.hostel.management.entity.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-
-
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -60,6 +58,32 @@ public class BookingService {
                 request.getCheckOutDate()
         );
 
+        // ✅ NOUVEAU : Pour SINGLE et DOUBLE → forcer TOUS les lits de la chambre
+        if (!beds.isEmpty()) {
+            Room room = beds.get(0).getRoom();
+            if (room.getRoomType() == Room.RoomType.SINGLE ||
+                    room.getRoomType() == Room.RoomType.DOUBLE) {
+
+                List<Bed> allBeds = bedRepository.findByRoomId(room.getId());
+
+                // Vérifier que TOUS les lits sont disponibles
+                for (Bed bed : allBeds) {
+                    if (!availabilityService.isBedAvailable(
+                            bed.getId(),
+                            request.getCheckInDate(),
+                            request.getCheckOutDate())) {
+                        throw new BookingException(
+                                "La chambre " + room.getRoomNumber() +
+                                        " n'est pas disponible pour ces dates"
+                        );
+                    }
+                }
+                beds = allBeds; // ✅ Remplacer par tous les lits de la chambre
+                log.info("Chambre {} ({}) → tous les lits sélectionnés automatiquement: {}",
+                        room.getRoomNumber(), room.getRoomType(), allBeds.size());
+            }
+        }
+
         Pack pack = null;
         if (request.getPackId() != null) {
             pack = packRepository.findById(request.getPackId())
@@ -69,7 +93,6 @@ public class BookingService {
                 throw new ValidationException("Ce pack n'est plus disponible");
             }
 
-            // ✅ Force le chargement des services du pack
             if (pack.getIncludedServices() != null) {
                 pack.getIncludedServices().size();
             }
@@ -78,10 +101,8 @@ public class BookingService {
         List<com.hostel.management.entity.Service> services = new ArrayList<>();
 
         if (pack != null) {
-            // Pack → services inclus dans le pack directement
             services = pack.getIncludedServices();
         } else if (request.getServiceIds() != null && !request.getServiceIds().isEmpty()) {
-            // Réservation normale → services choisis par le client
             services = serviceRepository.findAllById(request.getServiceIds());
             if (services.size() != request.getServiceIds().size()) {
                 throw new ResourceNotFoundException("Un ou plusieurs services non trouvés");
@@ -137,10 +158,9 @@ public class BookingService {
             throw new ResourceNotFoundException("Un ou plusieurs lits non trouvés");
         }
 
-        // ✅ Force le chargement de la room pour chaque bed
         beds.forEach(bed -> {
             if (bed.getRoom() != null) {
-                bed.getRoom().getRoomNumber(); // Force le chargement
+                bed.getRoom().getRoomNumber();
             }
         });
 
@@ -178,18 +198,32 @@ public class BookingService {
             Pack pack,
             long numberOfNights
     ) {
-        BigDecimal total = BigDecimal.ZERO;
-
         if (pack != null) {
-            // ✅ Pack = prix fixe tout compris, on s'arrête là
             return pack.getPromoPrice();
         }
 
-        // Calcul normal sans pack
-        for (Bed bed : beds) {
-            BigDecimal bedPrice = bed.getRoom().getPricePerNight()
-                    .multiply(BigDecimal.valueOf(numberOfNights));
-            total = total.add(bedPrice);
+        BigDecimal total = BigDecimal.ZERO;
+
+        if (!beds.isEmpty()) {
+            Room room = beds.get(0).getRoom();
+
+            // ✅ NOUVEAU : SINGLE / DOUBLE → prix chambre entière (1x pricePerNight)
+            if (room.getRoomType() == Room.RoomType.SINGLE ||
+                    room.getRoomType() == Room.RoomType.DOUBLE) {
+
+                total = room.getPricePerNight()
+                        .multiply(BigDecimal.valueOf(numberOfNights));
+                // ✅ PAS multiplié par le nombre de lits
+
+            } else {
+                // DORMITORY → prix par lit réservé
+                for (Bed bed : beds) {
+                    total = total.add(
+                            bed.getRoom().getPricePerNight()
+                                    .multiply(BigDecimal.valueOf(numberOfNights))
+                    );
+                }
+            }
         }
 
         for (Service service : services) {
@@ -198,7 +232,6 @@ public class BookingService {
 
         return total;
     }
-
 
     private String generateAccessCode() {
         return String.format("%06d", SECURE_RANDOM.nextInt(1000000));
@@ -218,17 +251,13 @@ public class BookingService {
         return sb.toString();
     }
 
-    // ✅ AJOUTER @Transactional(readOnly = true)
     @Transactional(readOnly = true)
     public BookingResponse getBookingByReference(String reference) {
         Booking booking = bookingRepository.findByBookingReference(reference)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Réservation non trouvée avec la référence: " + reference
                 ));
-
-        // ✅ Force le chargement des collections
         forceLoadCollections(booking);
-
         return mapToResponse(booking);
     }
 
@@ -244,17 +273,12 @@ public class BookingService {
                     try {
                         log.debug("Traitement réservation: {}", booking.getBookingReference());
 
-                        // ✅ Force le chargement des lits
                         if (booking.getBeds() != null) {
                             booking.getBeds().size();
                             log.debug("  - {} lits chargés", booking.getBeds().size());
-
-                            // ✅ Force le chargement de la room pour chaque lit
                             booking.getBeds().forEach(bed -> {
                                 if (bed.getRoom() != null) {
                                     bed.getRoom().getRoomNumber();
-
-                                    // ✅ Force le chargement des photos de la room
                                     if (bed.getRoom().getPhotos() != null) {
                                         bed.getRoom().getPhotos().size();
                                     }
@@ -262,23 +286,17 @@ public class BookingService {
                             });
                         }
 
-                        // ✅ Force le chargement des services
                         if (booking.getServices() != null) {
                             booking.getServices().size();
                             log.debug("  - {} services chargés", booking.getServices().size());
                         }
 
-                        // ✅ Force le chargement du pack
                         if (booking.getPack() != null) {
                             booking.getPack().getName();
                             log.debug("  - Pack: {}", booking.getPack().getName());
-
-                            // ✅ Force le chargement des services du pack
                             if (booking.getPack().getIncludedServices() != null) {
                                 booking.getPack().getIncludedServices().size();
                             }
-
-                            // ✅ Force le chargement des photos du pack
                             if (booking.getPack().getPhotos() != null) {
                                 booking.getPack().getPhotos().size();
                             }
@@ -302,9 +320,7 @@ public class BookingService {
     public BookingResponse getBookingById(Long id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Réservation non trouvée"));
-
         forceLoadCollections(booking);
-
         return mapToResponse(booking);
     }
 
@@ -312,41 +328,27 @@ public class BookingService {
     public List<BookingResponse> getTodayCheckIns() {
         LocalDate today = LocalDate.now();
         List<Booking> bookings = bookingRepository.findByCheckInDate(today);
-
         bookings.forEach(this::forceLoadCollections);
-
-        return bookings.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<BookingResponse> getTodayCheckOuts() {
         LocalDate today = LocalDate.now();
         List<Booking> bookings = bookingRepository.findByCheckOutDate(today);
-
         bookings.forEach(this::forceLoadCollections);
-
-        return bookings.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     @Transactional
     public BookingResponse updateBookingStatus(Long id, Booking.BookingStatus status) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Réservation non trouvée"));
-
         validateStatusTransition(booking.getStatus(), status);
-
         booking.setStatus(status);
         bookingRepository.save(booking);
-
-        log.info("Statut de la réservation {} changé à: {}",
-                booking.getBookingReference(), status);
-
+        log.info("Statut de la réservation {} changé à: {}", booking.getBookingReference(), status);
         forceLoadCollections(booking);
-
         return mapToResponse(booking);
     }
 
@@ -354,15 +356,11 @@ public class BookingService {
     public BookingResponse updatePaymentStatus(Long id, Booking.PaymentStatus paymentStatus) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Réservation non trouvée"));
-
         booking.setPaymentStatus(paymentStatus);
         bookingRepository.save(booking);
-
         log.info("Statut de paiement de la réservation {} changé à: {}",
                 booking.getBookingReference(), paymentStatus);
-
         forceLoadCollections(booking);
-
         return mapToResponse(booking);
     }
 
@@ -381,7 +379,6 @@ public class BookingService {
 
         booking.setStatus(Booking.BookingStatus.CANCELLED);
         bookingRepository.save(booking);
-
         log.info("Réservation {} annulée", booking.getBookingReference());
     }
 
@@ -406,24 +403,20 @@ public class BookingService {
         }
     }
 
-    // ✅ NOUVELLE MÉTHODE : Force le chargement des collections LAZY
     private void forceLoadCollections(Booking booking) {
         if (booking.getBeds() != null) {
             booking.getBeds().size();
-            // Force aussi le chargement de la room pour chaque bed
             booking.getBeds().forEach(bed -> {
                 if (bed.getRoom() != null) {
                     bed.getRoom().getRoomNumber();
                 }
             });
         }
-
         if (booking.getServices() != null) {
             booking.getServices().size();
         }
-
         if (booking.getPack() != null) {
-            booking.getPack().getName(); // Force le chargement du pack
+            booking.getPack().getName();
             if (booking.getPack().getIncludedServices() != null) {
                 booking.getPack().getIncludedServices().size();
             }
@@ -489,43 +482,30 @@ public class BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Réservation non trouvée avec le code: " + accessCode
                 ));
-
         forceLoadCollections(booking);
-
         return mapToResponse(booking);
     }
 
     @Transactional(readOnly = true)
     public List<BookingResponse> getCheckInsForDate(LocalDate date) {
         List<Booking> bookings = bookingRepository.findByCheckInDate(date);
-
         bookings.forEach(this::forceLoadCollections);
-
-        return bookings.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<BookingResponse> getCheckOutsForDate(LocalDate date) {
         List<Booking> bookings = bookingRepository.findByCheckOutDate(date);
-
         bookings.forEach(this::forceLoadCollections);
-
-        return bookings.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     @Transactional
     public void deleteBooking(Long id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Réservation non trouvée"));
-
-        log.info("Suppression de la réservation {} - {}", booking.getBookingReference(), booking.getGuestName());
-
-        // Supprimer définitivement de la base de données
+        log.info("Suppression de la réservation {} - {}",
+                booking.getBookingReference(), booking.getGuestName());
         bookingRepository.delete(booking);
     }
-
 }
