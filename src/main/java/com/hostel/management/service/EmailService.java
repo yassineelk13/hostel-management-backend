@@ -238,7 +238,7 @@ public class EmailService {
 
         // ✅ NOUVEAU : Prix (discret, pas en gros)
         html.append("<p style='margin: 15px 0 5px 0; color: #555; line-height: 1.8;'>");
-        html.append("<strong>Amount:</strong> ").append(booking.getTotalPrice()).append(" MAD");
+        html.append("<strong>Amount:</strong> ").append(booking.getTotalPrice()).append(" €");
         html.append("</p>");
 
         html.append("</div>");
