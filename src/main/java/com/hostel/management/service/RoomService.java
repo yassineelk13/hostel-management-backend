@@ -89,7 +89,7 @@ public class RoomService {
         room.setDescription(request.getDescription());
         room.setPricePerNight(request.getPricePerNight());
 
-        if (request.getPhotos() != null) {
+        if (request.getPhotos() != null && !request.getPhotos().isEmpty()) {
             if (room.getPhotos() != null) {
                 room.getPhotos().forEach(photoUrl -> {
                     try {

@@ -81,31 +81,22 @@ public class CloudinaryService {
      * Extraire le public_id depuis une URL Cloudinary
      */
     private String extractPublicId(String imageUrl) {
-        // Ex: https://res.cloudinary.com/xxx/image/upload/v123/shamshouse/rooms/abc.jpg
-        // Retourne: shamshouse/rooms/abc
         try {
-            String[] parts = imageUrl.split("/");
-            int uploadIndex = -1;
+            int uploadIndex = imageUrl.indexOf("/upload/");
+            if (uploadIndex == -1) return imageUrl;
 
-            for (int i = 0; i < parts.length; i++) {
-                if (parts[i].equals("upload")) {
-                    uploadIndex = i;
-                    break;
-                }
+            String afterUpload = imageUrl.substring(uploadIndex + 8);
+
+            if (afterUpload.matches("v\\d+/.*")) {
+                afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
             }
 
-            if (uploadIndex != -1 && uploadIndex + 2 < parts.length) {
-                // Construire le public_id
-                StringBuilder publicId = new StringBuilder();
-                for (int i = uploadIndex + 2; i < parts.length; i++) {
-                    if (i > uploadIndex + 2) publicId.append("/");
-                    publicId.append(parts[i].split("\\.")[0]); // Enlever l'extension
-                }
-                return publicId.toString();
-            }
+            int dotIndex = afterUpload.lastIndexOf(".");
+            return dotIndex != -1 ? afterUpload.substring(0, dotIndex) : afterUpload;
+
         } catch (Exception e) {
             log.error("Error extracting public_id from URL: {}", imageUrl, e);
+            return imageUrl;
         }
-        return imageUrl;
     }
 }
