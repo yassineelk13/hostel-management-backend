@@ -54,11 +54,7 @@ public class Service {
     @Column(nullable = false)
     private boolean isActive = true;
 
-    // ✅ AJOUTER relations inverses avec @JsonIgnore
-    @ManyToMany(mappedBy = "includedServices")
-    @JsonIgnore // ✅ Ne pas sérialiser les packs dans le JSON des services
-    @Builder.Default
-    private List<Pack> packs = new ArrayList<>();
+
 
     @ManyToMany(mappedBy = "services")
     @JsonIgnore // ✅ Ne pas sérialiser les bookings dans le JSON des services
