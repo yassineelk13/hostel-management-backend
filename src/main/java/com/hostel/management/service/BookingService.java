@@ -93,16 +93,12 @@ public class BookingService {
                 throw new ValidationException("Ce pack n'est plus disponible");
             }
 
-            if (pack.getIncludedServices() != null) {
-                pack.getIncludedServices().size();
-            }
+
         }
 
         List<com.hostel.management.entity.Service> services = new ArrayList<>();
 
-        if (pack != null) {
-            services = pack.getIncludedServices();
-        } else if (request.getServiceIds() != null && !request.getServiceIds().isEmpty()) {
+        if (request.getServiceIds() != null && !request.getServiceIds().isEmpty()) {
             services = serviceRepository.findAllById(request.getServiceIds());
             if (services.size() != request.getServiceIds().size()) {
                 throw new ResourceNotFoundException("Un ou plusieurs services non trouvés");
@@ -198,8 +194,14 @@ public class BookingService {
             Pack pack,
             long numberOfNights
     ) {
+        // ✅ CORRIGÉ : prix pack selon room type sélectionné
         if (pack != null) {
-            return pack.getPromoPrice();
+            if (!beds.isEmpty()) {
+                Room.RoomType roomType = beds.get(0).getRoom().getRoomType();
+                return pack.getPromoPrice(roomType)
+                        .multiply(BigDecimal.valueOf(numberOfNights));
+            }
+            return BigDecimal.ZERO;
         }
 
         BigDecimal total = BigDecimal.ZERO;
@@ -207,16 +209,11 @@ public class BookingService {
         if (!beds.isEmpty()) {
             Room room = beds.get(0).getRoom();
 
-            // ✅ NOUVEAU : SINGLE / DOUBLE → prix chambre entière (1x pricePerNight)
             if (room.getRoomType() == Room.RoomType.SINGLE ||
                     room.getRoomType() == Room.RoomType.DOUBLE) {
-
                 total = room.getPricePerNight()
                         .multiply(BigDecimal.valueOf(numberOfNights));
-                // ✅ PAS multiplié par le nombre de lits
-
             } else {
-                // DORMITORY → prix par lit réservé
                 for (Bed bed : beds) {
                     total = total.add(
                             bed.getRoom().getPricePerNight()
@@ -293,9 +290,9 @@ public class BookingService {
 
                         if (booking.getPack() != null) {
                             booking.getPack().getName();
-                            log.debug("  - Pack: {}", booking.getPack().getName());
-                            if (booking.getPack().getIncludedServices() != null) {
-                                booking.getPack().getIncludedServices().size();
+                            // ✅ SUPPRIMÉ : getIncludedServices() n'existe plus
+                            if (booking.getPack().getIncludedFeatures() != null) {
+                                booking.getPack().getIncludedFeatures().size();
                             }
                             if (booking.getPack().getPhotos() != null) {
                                 booking.getPack().getPhotos().size();
@@ -417,8 +414,12 @@ public class BookingService {
         }
         if (booking.getPack() != null) {
             booking.getPack().getName();
-            if (booking.getPack().getIncludedServices() != null) {
-                booking.getPack().getIncludedServices().size();
+            // ✅ SUPPRIMÉ : getIncludedServices() n'existe plus
+            if (booking.getPack().getPhotos() != null) {
+                booking.getPack().getPhotos().size();
+            }
+            if (booking.getPack().getIncludedFeatures() != null) {
+                booking.getPack().getIncludedFeatures().size();
             }
         }
     }
@@ -448,11 +449,20 @@ public class BookingService {
 
         BookingResponse.PackInfo packInfo = null;
         if (booking.getPack() != null) {
+            Pack p = booking.getPack();
+            // ✅ Récupérer le room type depuis les lits pour afficher le bon prix
+            BigDecimal promoPrice = BigDecimal.ZERO;
+            if (booking.getBeds() != null && !booking.getBeds().isEmpty()) {
+                Room.RoomType roomType = booking.getBeds().get(0).getRoom().getRoomType();
+                promoPrice = p.getPromoPrice(roomType);
+            }
+
             packInfo = BookingResponse.PackInfo.builder()
-                    .packId(booking.getPack().getId())
-                    .name(booking.getPack().getName())
-                    .durationDays(booking.getPack().getDurationDays())
-                    .promoPrice(booking.getPack().getPromoPrice())
+                    .packId(p.getId())
+                    .name(p.getName())
+                    // ✅ SUPPRIMÉ : durationDays n'existe plus
+                    // ✅ CORRIGÉ : prix selon room type
+                    .promoPrice(promoPrice)
                     .build();
         }
 

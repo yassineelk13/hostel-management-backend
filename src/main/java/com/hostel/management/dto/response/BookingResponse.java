@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;  // ✅ AJOUTER
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -31,7 +31,7 @@ public class BookingResponse {
     private List<ServiceInfo> services;
     private PackInfo pack;
     private String notes;
-    private LocalDateTime createdAt;  // ✅ AJOUTER CETTE LIGNE
+    private LocalDateTime createdAt;
 
     @Data
     @Builder
@@ -60,7 +60,7 @@ public class BookingResponse {
     public static class PackInfo {
         private Long packId;
         private String name;
-        private Integer durationDays;
+        // ✅ durationDays supprimé — n'existe plus dans Pack
         private BigDecimal promoPrice;
     }
 }

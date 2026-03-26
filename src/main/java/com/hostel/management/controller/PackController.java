@@ -11,14 +11,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api") // ✅ CHANGÉ ICI
+@RequestMapping("/api")
 @RequiredArgsConstructor
 @Slf4j
 public class PackController {
 
     private final PackService packService;
 
-    @GetMapping("/packs") // ✅ AJOUTER /packs ICI
+    @GetMapping("/packs")
     public ResponseEntity<ApiResponse<List<PackResponse>>> getAllPacks() {
         log.info("GET /api/packs - Récupération de tous les packs");
         try {
@@ -32,18 +32,10 @@ public class PackController {
         }
     }
 
-    @GetMapping("/packs/{id}") // ✅ AJOUTER /packs ICI
+    @GetMapping("/packs/{id}")
     public ResponseEntity<ApiResponse<PackResponse>> getPackById(@PathVariable Long id) {
         PackResponse pack = packService.getPackByIdAsResponse(id);
         return ResponseEntity.ok(ApiResponse.success("Pack récupéré avec succès", pack));
     }
-
-    @GetMapping("/packs/type/{roomType}") // ✅ AJOUTER /packs ICI
-    public ResponseEntity<ApiResponse<List<PackResponse>>> getPacksByRoomType(
-            @PathVariable String roomType) {
-        List<PackResponse> packs = packService.getPacksByRoomType(roomType);
-        return ResponseEntity.ok(ApiResponse.success("Packs récupérés par type", packs));
-    }
-
-
+    // ✅ getPacksByRoomType supprimé — roomType n'existe plus dans Pack
 }

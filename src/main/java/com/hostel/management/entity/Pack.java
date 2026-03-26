@@ -27,35 +27,45 @@ public class Pack {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
-    private Integer durationDays;
-
-    @Column(precision = 10, scale = 2)
-    private BigDecimal originalPrice;
+    // ✅ DORTOIR
+    @Column(nullable = false, precision = 10, scale = 2)
+    @DecimalMin(value = "0.0", inclusive = false)
+    private BigDecimal priceDortoir;       // Prix promo/nuit
 
     @Column(nullable = false, precision = 10, scale = 2)
     @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal promoPrice;
+    private BigDecimal regularPriceDortoir; // Prix barré/nuit
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Room.RoomType roomType;
+    // ✅ SINGLE
+    @Column(nullable = false, precision = 10, scale = 2)
+    @DecimalMin(value = "0.0", inclusive = false)
+    private BigDecimal priceSingle;
 
-    // ✅ AJOUTE fetch = FetchType.EAGER sur les photos
-    @ElementCollection(fetch = FetchType.EAGER) // ✅ CHANGEMENT ICI
+    @Column(nullable = false, precision = 10, scale = 2)
+    @DecimalMin(value = "0.0", inclusive = false)
+    private BigDecimal regularPriceSingle;
+
+    // ✅ DOUBLE
+    @Column(nullable = false, precision = 10, scale = 2)
+    @DecimalMin(value = "0.0", inclusive = false)
+    private BigDecimal priceDouble;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    @DecimalMin(value = "0.0", inclusive = false)
+    private BigDecimal regularPriceDouble;
+
+    // ✅ Features incluses (texte libre)
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "pack_features", joinColumns = @JoinColumn(name = "pack_id"))
+    @Column(name = "feature", columnDefinition = "TEXT")
+    @Builder.Default
+    private List<String> includedFeatures = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "pack_photos", joinColumns = @JoinColumn(name = "pack_id"))
     @Column(name = "photo_url")
     @Builder.Default
     private List<String> photos = new ArrayList<>();
-
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "pack_services",
-            joinColumns = @JoinColumn(name = "pack_id"),
-            inverseJoinColumns = @JoinColumn(name = "service_id")
-    )
-    @Builder.Default
-    private List<Service> includedServices = new ArrayList<>();
 
     @Column(nullable = false)
     private boolean isActive = true;
@@ -74,5 +84,23 @@ public class Pack {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    // ✅ Helper : prix promo par room type
+    public BigDecimal getPromoPrice(Room.RoomType roomType) {
+        return switch (roomType) {
+            case DORTOIR -> priceDortoir;
+            case SINGLE  -> priceSingle;
+            case DOUBLE  -> priceDouble;
+        };
+    }
+
+    // ✅ Helper : prix regular par room type
+    public BigDecimal getRegularPrice(Room.RoomType roomType) {
+        return switch (roomType) {
+            case DORTOIR -> regularPriceDortoir;
+            case SINGLE  -> regularPriceSingle;
+            case DOUBLE  -> regularPriceDouble;
+        };
     }
 }
