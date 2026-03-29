@@ -194,16 +194,26 @@ public class BookingService {
             Pack pack,
             long numberOfNights
     ) {
-        // ✅ CORRIGÉ : prix pack selon room type sélectionné
         if (pack != null) {
             if (!beds.isEmpty()) {
                 Room.RoomType roomType = beds.get(0).getRoom().getRoomType();
-                return pack.getPromoPrice(roomType)
+                BigDecimal pricePerNight = pack.getPromoPrice(roomType);
+
+                // ✅ DORTOIR → prix × nuits × nombre de lits sélectionnés
+                if (roomType == Room.RoomType.DORTOIR) {
+                    return pricePerNight
+                            .multiply(BigDecimal.valueOf(numberOfNights))
+                            .multiply(BigDecimal.valueOf(beds.size()));
+                }
+
+                // SINGLE / DOUBLE → prix fixe × nuits (chambre entière)
+                return pricePerNight
                         .multiply(BigDecimal.valueOf(numberOfNights));
             }
             return BigDecimal.ZERO;
         }
 
+        // ── Réservation sans pack ──
         BigDecimal total = BigDecimal.ZERO;
 
         if (!beds.isEmpty()) {
@@ -214,12 +224,10 @@ public class BookingService {
                 total = room.getPricePerNight()
                         .multiply(BigDecimal.valueOf(numberOfNights));
             } else {
-                for (Bed bed : beds) {
-                    total = total.add(
-                            bed.getRoom().getPricePerNight()
-                                    .multiply(BigDecimal.valueOf(numberOfNights))
-                    );
-                }
+                // DORTOIR sans pack → prix par lit × nuits × nbr lits
+                total = room.getPricePerNight()
+                        .multiply(BigDecimal.valueOf(numberOfNights))
+                        .multiply(BigDecimal.valueOf(beds.size()));
             }
         }
 
@@ -229,7 +237,6 @@ public class BookingService {
 
         return total;
     }
-
     private String generateAccessCode() {
         return String.format("%06d", SECURE_RANDOM.nextInt(1000000));
     }
