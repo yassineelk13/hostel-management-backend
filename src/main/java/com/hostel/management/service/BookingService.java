@@ -194,45 +194,52 @@ public class BookingService {
             Pack pack,
             long numberOfNights
     ) {
+        // ── Nombre de personnes (lits sélectionnés) ──
+        int bedCount = beds.isEmpty() ? 1 : beds.size();
+        Room.RoomType roomType = beds.isEmpty() ? null : beds.get(0).getRoom().getRoomType();
+
+        // ── Cas PACK ──
         if (pack != null) {
-            if (!beds.isEmpty()) {
-                Room.RoomType roomType = beds.get(0).getRoom().getRoomType();
-                BigDecimal pricePerNight = pack.getPromoPrice(roomType);
+            if (beds.isEmpty()) return BigDecimal.ZERO;
 
-                // ✅ DORTOIR → prix × nuits × nombre de lits sélectionnés
-                if (roomType == Room.RoomType.DORTOIR) {
-                    return pricePerNight
-                            .multiply(BigDecimal.valueOf(numberOfNights))
-                            .multiply(BigDecimal.valueOf(beds.size()));
-                }
+            BigDecimal pricePerNight = pack.getPromoPrice(roomType);
 
-                // SINGLE / DOUBLE → prix fixe × nuits (chambre entière)
+            if (roomType == Room.RoomType.DORTOIR) {
+                // ✅ DORTOIR pack → × nuits × lits
                 return pricePerNight
-                        .multiply(BigDecimal.valueOf(numberOfNights));
+                        .multiply(BigDecimal.valueOf(numberOfNights))
+                        .multiply(BigDecimal.valueOf(bedCount));
             }
-            return BigDecimal.ZERO;
+            // SINGLE / DOUBLE pack → chambre entière
+            return pricePerNight
+                    .multiply(BigDecimal.valueOf(numberOfNights));
         }
 
-        // ── Réservation sans pack ──
+        // ── Cas NORMAL (sans pack) ──
         BigDecimal total = BigDecimal.ZERO;
 
         if (!beds.isEmpty()) {
             Room room = beds.get(0).getRoom();
 
-            if (room.getRoomType() == Room.RoomType.SINGLE ||
-                    room.getRoomType() == Room.RoomType.DOUBLE) {
+            if (roomType == Room.RoomType.SINGLE || roomType == Room.RoomType.DOUBLE) {
+                // SINGLE / DOUBLE → prix chambre entière (1 seule fois)
                 total = room.getPricePerNight()
                         .multiply(BigDecimal.valueOf(numberOfNights));
+
+                bedCount = 1; // ✅ services aussi × 1 pour chambre entière
+
             } else {
-                // DORTOIR sans pack → prix par lit × nuits × nbr lits
+                // ✅ DORTOIR → prix par lit × nuits × nbr lits
                 total = room.getPricePerNight()
                         .multiply(BigDecimal.valueOf(numberOfNights))
-                        .multiply(BigDecimal.valueOf(beds.size()));
+                        .multiply(BigDecimal.valueOf(bedCount));
             }
         }
 
+        // ✅ Services × personnes (bedCount)
         for (Service service : services) {
-            total = total.add(service.calculateTotalPrice((int) numberOfNights));
+            BigDecimal servicePrice = service.calculateTotalPrice((int) numberOfNights);
+            total = total.add(servicePrice.multiply(BigDecimal.valueOf(bedCount)));
         }
 
         return total;
