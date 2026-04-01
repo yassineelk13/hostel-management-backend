@@ -74,11 +74,9 @@ public class RoomService {
 
     @Transactional
     public RoomResponse updateRoom(Long id, RoomRequest request) {
-        // ✅ MODIFIÉ : Cherche parmi les chambres actives
         Room room = roomRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Chambre non trouvée"));
 
-        // ✅ MODIFIÉ : Vérifie le numéro parmi les chambres actives
         if (!room.getRoomNumber().equals(request.getRoomNumber())
                 && roomRepository.existsByRoomNumberAndNotDeleted(request.getRoomNumber())) {
             throw new IllegalArgumentException("Numéro de chambre déjà existant");
@@ -89,29 +87,36 @@ public class RoomService {
         room.setDescription(request.getDescription());
         room.setPricePerNight(request.getPricePerNight());
 
-        if (request.getPhotos() != null && !request.getPhotos().isEmpty()) {
+        if (request.getPhotos() != null) {
+            // ✅ URLs Cloudinary à conserver (commencent par "http")
+            List<String> keptUrls = request.getPhotos().stream()
+                    .filter(p -> p != null && p.startsWith("http"))
+                    .collect(Collectors.toList());
+
+            // ✅ Supprime SEULEMENT les photos retirées par l'utilisateur
             if (room.getPhotos() != null) {
-                room.getPhotos().forEach(photoUrl -> {
-                    try {
-                        cloudinaryService.deleteImage(photoUrl);
-                    } catch (Exception e) {
-                        log.warn("Failed to delete old photo: {}", photoUrl);
+                room.getPhotos().forEach(oldUrl -> {
+                    if (!keptUrls.contains(oldUrl)) {
+                        try {
+                            cloudinaryService.deleteImage(oldUrl);
+                            log.info("Photo supprimée de Cloudinary: {}", oldUrl);
+                        } catch (Exception e) {
+                            log.warn("Échec suppression photo: {}", oldUrl);
+                        }
                     }
                 });
             }
 
-            List<String> uploadedPhotos = uploadPhotosToCloudinary(request.getPhotos(), "shamshouse/rooms");
-            room.setPhotos(uploadedPhotos);
+            // ✅ Les nouvelles photos sont déjà uploadées sur Cloudinary
+            // côté frontend avant d'appeler updateRoom
+            // On garde uniquement les URLs valides
+            room.setPhotos(keptUrls);
         }
 
         room = roomRepository.save(room);
 
-        if (room.getBeds() != null) {
-            room.getBeds().size();
-        }
-        if (room.getPhotos() != null) {
-            room.getPhotos().size();
-        }
+        if (room.getBeds() != null) room.getBeds().size();
+        if (room.getPhotos() != null) room.getPhotos().size();
 
         return mapToResponse(room, room.getBeds());
     }
