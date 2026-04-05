@@ -5,12 +5,17 @@ import lombok.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "pack_night_prices",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"pack_id", "nights", "room_type"}))
-@Data
+@Table(
+        name = "pack_night_prices",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"pack_id", "nights", "room_type"})
+)
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = "pack")           // ✅ évite StackOverflow
+@EqualsAndHashCode(exclude = "pack")  // ✅ évite StackOverflow
 public class PackNightPrice {
 
     @Id

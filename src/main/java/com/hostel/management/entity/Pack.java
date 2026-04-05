@@ -1,7 +1,6 @@
 package com.hostel.management.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -11,10 +10,13 @@ import java.util.List;
 
 @Entity
 @Table(name = "packs")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = "nightPrices")           // ✅ évite StackOverflow
+@EqualsAndHashCode(exclude = "nightPrices")  // ✅ évite StackOverflow
 public class Pack {
 
     @Id
@@ -27,16 +29,10 @@ public class Pack {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // ✅ SUPPRIMÉ : priceDortoir, regularPriceDortoir,
-    //               priceSingle, regularPriceSingle,
-    //               priceDouble, regularPriceDouble
-
-    // ✅ NOUVEAU : prix par nuits
     @OneToMany(mappedBy = "pack", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
     private List<PackNightPrice> nightPrices = new ArrayList<>();
 
-    // Features incluses (texte libre)
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "pack_features", joinColumns = @JoinColumn(name = "pack_id"))
     @Column(name = "feature", columnDefinition = "TEXT")
@@ -49,6 +45,7 @@ public class Pack {
     @Builder.Default
     private List<String> photos = new ArrayList<>();
 
+    // ✅ isActive : Lombok génère isActive() automatiquement pour boolean
     @Column(nullable = false)
     private boolean isActive = true;
 
@@ -57,12 +54,18 @@ public class Pack {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = LocalDateTime.now(); updatedAt = LocalDateTime.now(); }
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
 
     @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
-    // ✅ Helper : trouver le prix promo pour X nuits + roomType
+    // ── Helpers ──────────────────────────────────────────────
+
     public BigDecimal getPromoPrice(Room.RoomType roomType, int nights) {
         return nightPrices.stream()
                 .filter(p -> p.getRoomType() == roomType && p.getNights() == nights)
@@ -71,7 +74,6 @@ public class Pack {
                 .orElse(BigDecimal.ZERO);
     }
 
-    // ✅ Helper : trouver le prix regular pour X nuits + roomType
     public BigDecimal getRegularPrice(Room.RoomType roomType, int nights) {
         return nightPrices.stream()
                 .filter(p -> p.getRoomType() == roomType && p.getNights() == nights)
@@ -80,7 +82,6 @@ public class Pack {
                 .orElse(BigDecimal.ZERO);
     }
 
-    // ✅ Helper : prix minimum pour un roomType (pour affichage "à partir de")
     public BigDecimal getMinPromoPrice(Room.RoomType roomType) {
         return nightPrices.stream()
                 .filter(p -> p.getRoomType() == roomType)

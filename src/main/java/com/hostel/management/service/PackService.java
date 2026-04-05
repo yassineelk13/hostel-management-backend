@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-@Component
+@org.springframework.stereotype.Service
 @RequiredArgsConstructor
 @Slf4j
 public class PackService {
@@ -72,7 +72,7 @@ public class PackService {
         // ✅ Mettre à jour les prix : supprimer les anciens, ajouter les nouveaux
         if (request.getNightPrices() != null) {
             pack.getNightPrices().clear();
-            packRepository.save(pack); // flush orphans
+            packRepository.saveAndFlush(pack);// flush orphans
 
             for (PackRequest.NightPriceRequest npr : request.getNightPrices()) {
                 PackNightPrice nightPrice = PackNightPrice.builder()
@@ -166,7 +166,8 @@ public class PackService {
                         .promoPrice(np.getPromoPrice())
                         .regularPrice(np.getRegularPrice())
                         .build())
-                .sorted(Comparator.comparing(PackResponse.NightPriceResponse::getRoomType)
+                .sorted(Comparator.<PackResponse.NightPriceResponse, Room.RoomType>comparing(
+                                PackResponse.NightPriceResponse::getRoomType)
                         .thenComparingInt(PackResponse.NightPriceResponse::getNights))
                 .collect(Collectors.toList());
 
