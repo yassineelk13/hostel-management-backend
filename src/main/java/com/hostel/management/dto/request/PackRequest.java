@@ -1,5 +1,8 @@
 package com.hostel.management.dto.request;
 
+import com.hostel.management.entity.Room;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,35 +20,27 @@ public class PackRequest {
 
     private String description;
 
-    // ✅ DORTOIR
-    @NotNull(message = "Le prix promo DORTOIR est obligatoire")
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal priceDortoir;
+    // ✅ NOUVEAU : liste des prix par nuits
+    private List<NightPriceRequest> nightPrices = new ArrayList<>();
 
-    @NotNull(message = "Le prix regular DORTOIR est obligatoire")
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal regularPriceDortoir;
-
-    // ✅ SINGLE
-    @NotNull(message = "Le prix promo SINGLE est obligatoire")
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal priceSingle;
-
-    @NotNull(message = "Le prix regular SINGLE est obligatoire")
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal regularPriceSingle;
-
-    // ✅ DOUBLE
-    @NotNull(message = "Le prix promo DOUBLE est obligatoire")
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal priceDouble;
-
-    @NotNull(message = "Le prix regular DOUBLE est obligatoire")
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal regularPriceDouble;
-
-    // ✅ Features texte libre
     private List<String> includedFeatures = new ArrayList<>();
-
     private List<String> photos = new ArrayList<>();
+
+    // ✅ Sous-objet pour chaque ligne de prix
+    @Data
+    public static class NightPriceRequest {
+        @NotNull
+        private Integer nights; // 3 à 10
+
+        @NotNull
+        @Enumerated(EnumType.STRING)
+        private Room.RoomType roomType;
+
+        @NotNull
+        @DecimalMin(value = "0.0", inclusive = false)
+        private BigDecimal promoPrice;
+
+        @DecimalMin(value = "0.0", inclusive = false)
+        private BigDecimal regularPrice;
+    }
 }

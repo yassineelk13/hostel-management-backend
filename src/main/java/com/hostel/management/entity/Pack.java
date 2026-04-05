@@ -27,34 +27,16 @@ public class Pack {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // ✅ DORTOIR
-    @Column(nullable = false, precision = 10, scale = 2)
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal priceDortoir;       // Prix promo/nuit
+    // ✅ SUPPRIMÉ : priceDortoir, regularPriceDortoir,
+    //               priceSingle, regularPriceSingle,
+    //               priceDouble, regularPriceDouble
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal regularPriceDortoir; // Prix barré/nuit
+    // ✅ NOUVEAU : prix par nuits
+    @OneToMany(mappedBy = "pack", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @Builder.Default
+    private List<PackNightPrice> nightPrices = new ArrayList<>();
 
-    // ✅ SINGLE
-    @Column(nullable = false, precision = 10, scale = 2)
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal priceSingle;
-
-    @Column(nullable = false, precision = 10, scale = 2)
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal regularPriceSingle;
-
-    // ✅ DOUBLE
-    @Column(nullable = false, precision = 10, scale = 2)
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal priceDouble;
-
-    @Column(nullable = false, precision = 10, scale = 2)
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal regularPriceDouble;
-
-    // ✅ Features incluses (texte libre)
+    // Features incluses (texte libre)
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "pack_features", joinColumns = @JoinColumn(name = "pack_id"))
     @Column(name = "feature", columnDefinition = "TEXT")
@@ -72,35 +54,38 @@ public class Pack {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
+    protected void onCreate() { createdAt = LocalDateTime.now(); updatedAt = LocalDateTime.now(); }
 
     @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+
+    // ✅ Helper : trouver le prix promo pour X nuits + roomType
+    public BigDecimal getPromoPrice(Room.RoomType roomType, int nights) {
+        return nightPrices.stream()
+                .filter(p -> p.getRoomType() == roomType && p.getNights() == nights)
+                .map(PackNightPrice::getPromoPrice)
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
     }
 
-    // ✅ Helper : prix promo par room type
-    public BigDecimal getPromoPrice(Room.RoomType roomType) {
-        return switch (roomType) {
-            case DORTOIR -> priceDortoir;
-            case SINGLE  -> priceSingle;
-            case DOUBLE  -> priceDouble;
-        };
+    // ✅ Helper : trouver le prix regular pour X nuits + roomType
+    public BigDecimal getRegularPrice(Room.RoomType roomType, int nights) {
+        return nightPrices.stream()
+                .filter(p -> p.getRoomType() == roomType && p.getNights() == nights)
+                .map(PackNightPrice::getRegularPrice)
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
     }
 
-    // ✅ Helper : prix regular par room type
-    public BigDecimal getRegularPrice(Room.RoomType roomType) {
-        return switch (roomType) {
-            case DORTOIR -> regularPriceDortoir;
-            case SINGLE  -> regularPriceSingle;
-            case DOUBLE  -> regularPriceDouble;
-        };
+    // ✅ Helper : prix minimum pour un roomType (pour affichage "à partir de")
+    public BigDecimal getMinPromoPrice(Room.RoomType roomType) {
+        return nightPrices.stream()
+                .filter(p -> p.getRoomType() == roomType)
+                .map(PackNightPrice::getPromoPrice)
+                .min(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
     }
 }

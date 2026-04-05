@@ -3,12 +3,15 @@ package com.hostel.management.service;
 import com.hostel.management.dto.request.PackRequest;
 import com.hostel.management.dto.response.PackResponse;
 import com.hostel.management.entity.Pack;
+import com.hostel.management.entity.PackNightPrice;
+import com.hostel.management.entity.Room;
 import com.hostel.management.exception.ResourceNotFoundException;
 import com.hostel.management.repository.PackRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Comparator;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -33,19 +36,29 @@ public class PackService {
         Pack pack = Pack.builder()
                 .name(request.getName())
                 .description(request.getDescription())
-                .priceDortoir(request.getPriceDortoir())
-                .regularPriceDortoir(request.getRegularPriceDortoir())
-                .priceSingle(request.getPriceSingle())
-                .regularPriceSingle(request.getRegularPriceSingle())
-                .priceDouble(request.getPriceDouble())
-                .regularPriceDouble(request.getRegularPriceDouble())
-                .includedFeatures(request.getIncludedFeatures() != null
-                        ? request.getIncludedFeatures() : new ArrayList<>())
+                .includedFeatures(request.getIncludedFeatures() != null ? request.getIncludedFeatures() : new ArrayList<>())
                 .photos(uploadedPhotos)
                 .isActive(true)
                 .build();
 
-        return packRepository.save(pack);
+        packRepository.save(pack);
+
+        // ✅ Sauvegarder les prix par nuits
+        if (request.getNightPrices() != null) {
+            for (PackRequest.NightPriceRequest npr : request.getNightPrices()) {
+                PackNightPrice nightPrice = PackNightPrice.builder()
+                        .pack(pack)
+                        .nights(npr.getNights())
+                        .roomType(npr.getRoomType())
+                        .promoPrice(npr.getPromoPrice())
+                        .regularPrice(npr.getRegularPrice())
+                        .build();
+                pack.getNightPrices().add(nightPrice);
+            }
+            packRepository.save(pack);
+        }
+
+        return pack;
     }
 
     @Transactional
@@ -55,12 +68,23 @@ public class PackService {
 
         pack.setName(request.getName());
         pack.setDescription(request.getDescription());
-        pack.setPriceDortoir(request.getPriceDortoir());
-        pack.setRegularPriceDortoir(request.getRegularPriceDortoir());
-        pack.setPriceSingle(request.getPriceSingle());
-        pack.setRegularPriceSingle(request.getRegularPriceSingle());
-        pack.setPriceDouble(request.getPriceDouble());
-        pack.setRegularPriceDouble(request.getRegularPriceDouble());
+
+        // ✅ Mettre à jour les prix : supprimer les anciens, ajouter les nouveaux
+        if (request.getNightPrices() != null) {
+            pack.getNightPrices().clear();
+            packRepository.save(pack); // flush orphans
+
+            for (PackRequest.NightPriceRequest npr : request.getNightPrices()) {
+                PackNightPrice nightPrice = PackNightPrice.builder()
+                        .pack(pack)
+                        .nights(npr.getNights())
+                        .roomType(npr.getRoomType())
+                        .promoPrice(npr.getPromoPrice())
+                        .regularPrice(npr.getRegularPrice())
+                        .build();
+                pack.getNightPrices().add(nightPrice);
+            }
+        }
 
         if (request.getIncludedFeatures() != null) {
             pack.getIncludedFeatures().clear();
@@ -70,15 +94,11 @@ public class PackService {
         if (request.getPhotos() != null) {
             if (pack.getPhotos() != null) {
                 pack.getPhotos().forEach(photoUrl -> {
-                    try {
-                        cloudinaryService.deleteImage(photoUrl);
-                    } catch (Exception e) {
-                        log.warn("Failed to delete old pack photo: {}", photoUrl);
-                    }
+                    try { cloudinaryService.deleteImage(photoUrl); }
+                    catch (Exception e) { log.warn("Failed to delete old pack photo: {}", photoUrl); }
                 });
             }
-            List<String> uploadedPhotos = uploadPhotosToCloudinary(request.getPhotos(), "shamshouse/packs");
-            pack.setPhotos(uploadedPhotos);
+            pack.setPhotos(uploadPhotosToCloudinary(request.getPhotos(), "shamshouse/packs"));
         }
 
         return packRepository.save(pack);
@@ -138,25 +158,33 @@ public class PackService {
     }
 
     private PackResponse mapToResponse(Pack pack) {
+        // ✅ Construire la liste des nightPrices
+        List<PackResponse.NightPriceResponse> nightPrices = pack.getNightPrices().stream()
+                .map(np -> PackResponse.NightPriceResponse.builder()
+                        .nights(np.getNights())
+                        .roomType(np.getRoomType())
+                        .promoPrice(np.getPromoPrice())
+                        .regularPrice(np.getRegularPrice())
+                        .build())
+                .sorted(Comparator.comparing(PackResponse.NightPriceResponse::getRoomType)
+                        .thenComparingInt(PackResponse.NightPriceResponse::getNights))
+                .collect(Collectors.toList());
+
         return PackResponse.builder()
                 .id(pack.getId())
                 .name(pack.getName())
                 .description(pack.getDescription())
-                .priceDortoir(pack.getPriceDortoir())
-                .priceSingle(pack.getPriceSingle())
-                .priceDouble(pack.getPriceDouble())
-                .regularPriceDortoir(pack.getRegularPriceDortoir())
-                .regularPriceSingle(pack.getRegularPriceSingle())
-                .regularPriceDouble(pack.getRegularPriceDouble())
-                .discountDortoir(calculateDiscount(pack.getRegularPriceDortoir(), pack.getPriceDortoir()))
-                .discountSingle(calculateDiscount(pack.getRegularPriceSingle(), pack.getPriceSingle()))
-                .discountDouble(calculateDiscount(pack.getRegularPriceDouble(), pack.getPriceDouble()))
-                .includedFeatures(pack.getIncludedFeatures() != null
-                        ? pack.getIncludedFeatures() : new ArrayList<>())
+                .nightPrices(nightPrices)
+                // ✅ Prix minimum par room type pour affichage "à partir de"
+                .minPriceDortoir(pack.getMinPromoPrice(Room.RoomType.DORTOIR))
+                .minPriceSingle(pack.getMinPromoPrice(Room.RoomType.SINGLE))
+                .minPriceDouble(pack.getMinPromoPrice(Room.RoomType.DOUBLE))
+                .includedFeatures(pack.getIncludedFeatures() != null ? pack.getIncludedFeatures() : new ArrayList<>())
                 .photos(pack.getPhotos() != null ? pack.getPhotos() : new ArrayList<>())
                 .isActive(pack.isActive())
                 .build();
     }
+
 
     private BigDecimal calculateDiscount(BigDecimal regular, BigDecimal promo) {
         if (regular == null || promo == null || regular.compareTo(BigDecimal.ZERO) == 0) {

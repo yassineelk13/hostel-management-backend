@@ -1,5 +1,6 @@
 package com.hostel.management.dto.response;
 
+import com.hostel.management.entity.Room;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,22 +18,26 @@ public class PackResponse {
     private String name;
     private String description;
 
-    // ✅ Prix promo/nuit par room type
-    private BigDecimal priceDortoir;
-    private BigDecimal priceSingle;
-    private BigDecimal priceDouble;
+    // ✅ NOUVEAU : liste des prix par nuits
+    private List<NightPriceResponse> nightPrices;
 
-    // ✅ Prix regular/nuit par room type (barré)
-    private BigDecimal regularPriceDortoir;
-    private BigDecimal regularPriceSingle;
-    private BigDecimal regularPriceDouble;
-
-    // ✅ Réductions calculées automatiquement (%)
-    private BigDecimal discountDortoir;
-    private BigDecimal discountSingle;
-    private BigDecimal discountDouble;
+    // ✅ Prix minimum par room type (pour affichage "à partir de")
+    private BigDecimal minPriceDortoir;
+    private BigDecimal minPriceSingle;
+    private BigDecimal minPriceDouble;
 
     private List<String> includedFeatures;
     private List<String> photos;
     private boolean isActive;
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class NightPriceResponse {
+        private int nights;
+        private Room.RoomType roomType;
+        private BigDecimal promoPrice;
+        private BigDecimal regularPrice;
+    }
 }
