@@ -36,6 +36,8 @@ public class BookingResponse {
     // ✅ NEW: exposed to frontend for display purposes
     private int numberOfPersons;
 
+    private String roomType;
+
     @Data @Builder @AllArgsConstructor @NoArgsConstructor
     public static class BedInfo {
         private Long bedId;

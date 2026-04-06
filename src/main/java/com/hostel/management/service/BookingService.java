@@ -481,6 +481,12 @@ public class BookingService {
                     .build();
         }
 
+        String roomType = null;
+        if (booking.getBeds() != null && !booking.getBeds().isEmpty()
+                && booking.getBeds().get(0).getRoom() != null) {
+            roomType = booking.getBeds().get(0).getRoom().getRoomType().name();
+        }
+
         return BookingResponse.builder()
                 .id(booking.getId())
                 .bookingReference(booking.getBookingReference())
@@ -492,6 +498,7 @@ public class BookingService {
                 .checkOutDate(booking.getCheckOutDate())
                 .totalPrice(booking.getTotalPrice())
                 .numberOfPersons(booking.getNumberOfPersons())   // ✅ NEW
+                .roomType(roomType)
                 .status(booking.getStatus())
                 .paymentStatus(booking.getPaymentStatus())
                 .beds(bedInfos)
