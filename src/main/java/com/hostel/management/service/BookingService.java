@@ -211,9 +211,18 @@ public class BookingService {
         // ── Normal path (no pack) ─────────────────────────────────────────
         BigDecimal total;
 
+        // ✅ APRÈS
         if (rt == Room.RoomType.SINGLE || rt == Room.RoomType.DOUBLE) {
-            // Room price is fixed (does NOT change with persons count for room itself)
             total = room.getPricePerNight().multiply(BigDecimal.valueOf(numberOfNights));
+
+            // ✅ Breakfast extra pour SINGLE + 2 personnes (sans pack)
+            if (rt == Room.RoomType.SINGLE && numberOfPersons > 1) {
+                BigDecimal breakfastExtra = BREAKFAST_EXTRA_PER_PERSON_PER_NIGHT
+                        .multiply(BigDecimal.valueOf(numberOfPersons - 1))
+                        .multiply(BigDecimal.valueOf(numberOfNights));
+                total = total.add(breakfastExtra);
+                log.info("SINGLE 2 personnes sans pack: breakfastExtra={}", breakfastExtra);
+            }
         } else {
             // DORTOIR: price × nights × beds
             total = room.getPricePerNight()
