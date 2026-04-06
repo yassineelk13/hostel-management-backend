@@ -20,10 +20,9 @@ public class BookingRequest {
     @NotBlank(message = "Téléphone du client est obligatoire")
     @Pattern(
             regexp = "^[+0-9][0-9\\s\\-().]{7,19}$",
-            message = "Le téléphone doit contenir uniquement des chiffres et symboles valides (+, -, espaces, parenthèses)"
+            message = "Le téléphone doit contenir uniquement des chiffres et symboles valides"
     )
     private String guestPhone;
-
 
     @NotNull(message = "Date d'arrivée est obligatoire")
     @FutureOrPresent(message = "Date d'arrivée doit être aujourd'hui ou future")
@@ -45,12 +44,15 @@ public class BookingRequest {
     @Size(max = 1000, message = "Les notes ne peuvent pas dépasser 1000 caractères")
     private String notes;
 
-    // ✅ Validation custom pour vérifier checkOut > checkIn
+    // ✅ NEW: number of persons for SINGLE rooms (1 or 2)
+    // DORTOIR: automatically equals bedIds.size() | DOUBLE: always 1
+    @Min(value = 1, message = "Le nombre de personnes doit être au moins 1")
+    @Max(value = 2, message = "Maximum 2 personnes par chambre")
+    private int numberOfPersons = 1;
+
     @AssertTrue(message = "La date de départ doit être après la date d'arrivée")
     public boolean isCheckOutAfterCheckIn() {
-        if (checkInDate == null || checkOutDate == null) {
-            return true; // Laisse @NotNull gérer ça
-        }
+        if (checkInDate == null || checkOutDate == null) return true;
         return checkOutDate.isAfter(checkInDate);
     }
 }

@@ -33,34 +33,30 @@ public class BookingResponse {
     private String notes;
     private LocalDateTime createdAt;
 
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
+    // ✅ NEW: exposed to frontend for display purposes
+    private int numberOfPersons;
+
+    @Data @Builder @AllArgsConstructor @NoArgsConstructor
     public static class BedInfo {
         private Long bedId;
         private String bedNumber;
         private String roomNumber;
     }
 
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
+    @Data @Builder @AllArgsConstructor @NoArgsConstructor
     public static class ServiceInfo {
         private Long serviceId;
         private String name;
         private BigDecimal price;
+        // ✅ NEW: pricingType exposed so frontend knows which services were per-person
+        private String pricingType;
     }
 
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
+    @Data @Builder @AllArgsConstructor @NoArgsConstructor
     public static class PackInfo {
         private Long packId;
         private String name;
-        // ✅ durationDays supprimé — n'existe plus dans Pack
         private BigDecimal promoPrice;
+        private Integer durationDays;
     }
 }

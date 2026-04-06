@@ -16,8 +16,9 @@ import java.util.List;
 @Table(
         name = "services",
         indexes = {
-                @Index(name = "idx_service_category", columnList = "category"),
-                @Index(name = "idx_service_active", columnList = "isActive")
+                @Index(name = "idx_service_category",    columnList = "category"),
+                @Index(name = "idx_service_active",      columnList = "isActive"),
+                @Index(name = "idx_service_pricing_type", columnList = "pricingType")  // ✅ NEW
         }
 )
 @Data
@@ -51,13 +52,17 @@ public class Service {
     @Builder.Default
     private PriceType priceType = PriceType.FIXED;
 
+    // ✅ NEW: determines if the service is charged per person or per room
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private PricingType pricingType = PricingType.PER_PERSON;
+
     @Column(nullable = false)
     private boolean isActive = true;
 
-
-
     @ManyToMany(mappedBy = "services")
-    @JsonIgnore // ✅ Ne pas sérialiser les bookings dans le JSON des services
+    @JsonIgnore
     @Builder.Default
     private List<Booking> bookings = new ArrayList<>();
 
@@ -77,21 +82,33 @@ public class Service {
         updatedAt = LocalDateTime.now();
     }
 
-    // ✅ Méthode pour calculer le prix total
+    // ✅ KEPT for backward compatibility (single-person or room-level calculation)
     public BigDecimal calculateTotalPrice(int numberOfNights) {
-        if (priceType == PriceType.PER_NIGHT) {
-            return price.multiply(BigDecimal.valueOf(numberOfNights));
-        }
-        return price;
+        return calculateTotalPrice(numberOfNights, 1);
     }
+
+    // ✅ NEW: calculates price taking persons count into account
+    // - PER_ROOM services (transport etc.)  → persons multiplier is always 1
+    // - PER_PERSON services (surf, yoga...) → multiplied by numberOfPersons
+    public BigDecimal calculateTotalPrice(int numberOfNights, int numberOfPersons) {
+        int personMultiplier = (pricingType == PricingType.PER_ROOM) ? 1 : numberOfPersons;
+        if (priceType == PriceType.PER_NIGHT) {
+            return price
+                    .multiply(BigDecimal.valueOf(numberOfNights))
+                    .multiply(BigDecimal.valueOf(personMultiplier));
+        }
+        return price.multiply(BigDecimal.valueOf(personMultiplier));
+    }
+
+    // ========== ENUMS ==========
 
     @Getter
     @AllArgsConstructor
     public enum ServiceCategory {
-        TRANSPORT("🚗", "Transport", "Services de transport"),
-        MEAL("🍽️", "Repas", "Services de restauration"),
-        ACTIVITY("🎯", "Activités", "Activités et excursions"),
-        OTHER("📦", "Autres", "Autres services");
+        TRANSPORT("🚗", "Transport",   "Services de transport"),
+        MEAL     ("🍽️", "Repas",       "Services de restauration"),
+        ACTIVITY ("🎯", "Activités",   "Activités et excursions"),
+        OTHER    ("📦", "Autres",      "Autres services");
 
         private final String icon;
         private final String displayName;
@@ -101,8 +118,19 @@ public class Service {
     @Getter
     @AllArgsConstructor
     public enum PriceType {
-        FIXED("Prix fixe", "Tarif unique pour tout le séjour"),
-        PER_NIGHT("Par nuit", "Tarif multiplié par le nombre de nuits");
+        FIXED    ("Prix fixe", "Tarif unique pour tout le séjour"),
+        PER_NIGHT("Par nuit",  "Tarif multiplié par le nombre de nuits");
+
+        private final String displayName;
+        private final String description;
+    }
+
+    // ✅ NEW enum
+    @Getter
+    @AllArgsConstructor
+    public enum PricingType {
+        PER_PERSON("Par personne", "Tarif multiplié par le nombre de personnes — ex: surf, yoga, petit-déjeuner"),
+        PER_ROOM  ("Par chambre",  "Tarif unique pour toute la chambre — ex: transport, navette");
 
         private final String displayName;
         private final String description;

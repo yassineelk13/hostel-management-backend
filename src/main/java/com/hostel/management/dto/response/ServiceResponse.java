@@ -19,5 +19,7 @@ public class ServiceResponse {
     private BigDecimal price;
     private Service.ServiceCategory category;
     private Service.PriceType priceType;
+    // ✅ NEW: exposed to frontend so it knows PER_PERSON vs PER_ROOM
+    private Service.PricingType pricingType;
     private boolean isActive;
 }

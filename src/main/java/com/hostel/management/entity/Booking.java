@@ -16,12 +16,12 @@ import java.util.List;
 @Table(
         name = "bookings",
         indexes = {
-                @Index(name = "idx_booking_dates", columnList = "checkInDate, checkOutDate"),
-                @Index(name = "idx_booking_status", columnList = "status"),
-                @Index(name = "idx_booking_payment", columnList = "paymentStatus"),
-                @Index(name = "idx_booking_email", columnList = "guestEmail"),
-                @Index(name = "idx_booking_reference", columnList = "bookingReference"),
-                @Index(name = "idx_booking_access_code", columnList = "accessCode")
+                @Index(name = "idx_booking_dates",        columnList = "checkInDate, checkOutDate"),
+                @Index(name = "idx_booking_status",       columnList = "status"),
+                @Index(name = "idx_booking_payment",      columnList = "paymentStatus"),
+                @Index(name = "idx_booking_email",        columnList = "guestEmail"),
+                @Index(name = "idx_booking_reference",    columnList = "bookingReference"),
+                @Index(name = "idx_booking_access_code",  columnList = "accessCode")
         }
 )
 @Data
@@ -58,6 +58,13 @@ public class Booking {
     @Column(nullable = false, precision = 10, scale = 2)
     @DecimalMin(value = "0.0", inclusive = false, message = "Le prix doit être positif")
     private BigDecimal totalPrice;
+
+    // ✅ NEW: number of persons — only meaningful for SINGLE rooms (1 or 2)
+    // DORTOIR: automatically set to bedIds.size() | DOUBLE: always 1
+    @Column(nullable = false)
+    @Min(value = 1, message = "Le nombre de personnes doit être au moins 1")
+    @Builder.Default
+    private int numberOfPersons = 1;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -108,18 +115,20 @@ public class Booking {
 
     private LocalDateTime updatedAt;
 
-    // ✅ CORRECTION : Initialisation obligatoire à 0L
     @Version
     @Column(nullable = false)
     @Builder.Default
-    private Long version = 0L;  // ✅ CHANGÉ ICI
+    private Long version = 0L;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (version == null) {  // ✅ SÉCURITÉ SUPPLÉMENTAIRE
+        if (version == null) {
             version = 0L;
+        }
+        if (numberOfPersons < 1) {
+            numberOfPersons = 1;
         }
         validateDates();
     }
@@ -153,6 +162,14 @@ public class Booking {
         return status == BookingStatus.CHECKED_IN &&
                 !today.isBefore(checkInDate) &&
                 !today.isAfter(checkOutDate);
+    }
+
+    // ✅ NEW: recalculates services total using pricingType
+    public BigDecimal calculateServicesTotal() {
+        long nights = getNumberOfNights();
+        return services.stream()
+                .map(s -> s.calculateTotalPrice((int) nights, numberOfPersons))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public enum BookingStatus {

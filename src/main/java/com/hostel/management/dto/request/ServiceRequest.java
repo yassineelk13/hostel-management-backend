@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 
 @Data
 public class ServiceRequest {
+
     @NotBlank(message = "Nom du service est obligatoire")
     private String name;
 
@@ -20,7 +21,10 @@ public class ServiceRequest {
     @NotNull(message = "Catégorie est obligatoire")
     private Service.ServiceCategory category;
 
-    // ✅ NOUVEAU CHAMP AJOUTÉ
     @NotNull(message = "Type de prix est obligatoire")
-    private Service.PriceType priceType = Service.PriceType.FIXED;  // Valeur par défaut
+    private Service.PriceType priceType = Service.PriceType.FIXED;
+
+    // ✅ NEW: PER_PERSON (surf, yoga...) or PER_ROOM (transport...)
+    @NotNull(message = "Mode de tarification est obligatoire")
+    private Service.PricingType pricingType = Service.PricingType.PER_PERSON;
 }

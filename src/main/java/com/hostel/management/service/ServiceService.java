@@ -1,20 +1,20 @@
 package com.hostel.management.service;
 
 import com.hostel.management.dto.request.ServiceRequest;
-import com.hostel.management.dto.response.ServiceResponse;  // ✅ AJOUTER
+import com.hostel.management.dto.response.ServiceResponse;
 import com.hostel.management.entity.Service;
 import com.hostel.management.exception.ResourceNotFoundException;
 import com.hostel.management.repository.ServiceRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;  // ✅ AJOUTER
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;  // ✅ AJOUTER
+import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
-@Slf4j  // ✅ AJOUTER
+@Slf4j
 public class ServiceService {
 
     private final ServiceRepository serviceRepository;
@@ -27,11 +27,15 @@ public class ServiceService {
                 .price(request.getPrice())
                 .category(request.getCategory())
                 .priceType(request.getPriceType())
+                // ✅ NEW: store pricingType (PER_PERSON or PER_ROOM)
+                .pricingType(request.getPricingType() != null
+                        ? request.getPricingType()
+                        : Service.PricingType.PER_PERSON)
                 .isActive(true)
                 .build();
 
         Service saved = serviceRepository.save(service);
-        log.info("Service créé: {}", saved.getName());
+        log.info("Service créé: {} [{}]", saved.getName(), saved.getPricingType());
         return saved;
     }
 
@@ -45,9 +49,13 @@ public class ServiceService {
         service.setPrice(request.getPrice());
         service.setCategory(request.getCategory());
         service.setPriceType(request.getPriceType());
+        // ✅ NEW: update pricingType
+        if (request.getPricingType() != null) {
+            service.setPricingType(request.getPricingType());
+        }
 
         Service updated = serviceRepository.save(service);
-        log.info("Service mis à jour: {}", updated.getId());
+        log.info("Service mis à jour: {} [{}]", updated.getId(), updated.getPricingType());
         return updated;
     }
 
@@ -55,7 +63,6 @@ public class ServiceService {
     public void deleteService(Long id) {
         Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service non trouvé"));
-
         service.setActive(false);
         serviceRepository.save(service);
         log.info("Service désactivé: {}", id);
@@ -74,7 +81,6 @@ public class ServiceService {
         return serviceRepository.findByCategory(category);
     }
 
-    // ✅ Méthodes pour retourner des DTOs
     public List<ServiceResponse> getAllServicesAsResponse() {
         return serviceRepository.findByIsActiveTrue().stream()
                 .map(this::mapToResponse)
@@ -82,9 +88,8 @@ public class ServiceService {
     }
 
     public ServiceResponse getServiceByIdAsResponse(Long id) {
-        Service service = serviceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Service non trouvé"));
-        return mapToResponse(service);
+        return mapToResponse(serviceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Service non trouvé")));
     }
 
     public List<ServiceResponse> getServicesByCategoryAsResponse(Service.ServiceCategory category) {
@@ -101,6 +106,7 @@ public class ServiceService {
                 .price(service.getPrice())
                 .category(service.getCategory())
                 .priceType(service.getPriceType())
+                .pricingType(service.getPricingType())   // ✅ NEW
                 .isActive(service.isActive())
                 .build();
     }
