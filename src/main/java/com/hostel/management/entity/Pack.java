@@ -15,8 +15,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = "nightPrices")           // ✅ évite StackOverflow
-@EqualsAndHashCode(exclude = "nightPrices")  // ✅ évite StackOverflow
+@ToString(exclude = "nightPrices")
+@EqualsAndHashCode(exclude = "nightPrices")
 public class Pack {
 
     @Id
@@ -28,6 +28,13 @@ public class Pack {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    // ✅ NEW: prix supplémentaire par nuit pour la 2ème personne (SINGLE room)
+    // Inclut toutes les activités PER_PERSON (surf, yoga...)
+    // Nullable → si null ou 0, pas de surcharge 2ème personne
+    @Column(precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal extraPersonPricePerNight = BigDecimal.ZERO;
 
     @OneToMany(mappedBy = "pack", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
@@ -45,7 +52,6 @@ public class Pack {
     @Builder.Default
     private List<String> photos = new ArrayList<>();
 
-    // ✅ isActive : Lombok génère isActive() automatiquement pour boolean
     @Column(nullable = false)
     private boolean isActive = true;
 

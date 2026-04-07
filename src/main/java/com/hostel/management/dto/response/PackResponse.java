@@ -17,6 +17,7 @@ public class PackResponse {
     private Long id;
     private String name;
     private String description;
+    private BigDecimal extraPersonPricePerNight;
 
     // ✅ NOUVEAU : liste des prix par nuits
     private List<NightPriceResponse> nightPrices;

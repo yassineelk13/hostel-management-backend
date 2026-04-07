@@ -33,11 +33,15 @@ public class PackService {
     public Pack createPack(PackRequest request) {
         List<String> uploadedPhotos = uploadPhotosToCloudinary(request.getPhotos(), "shamshouse/packs");
 
+
         Pack pack = Pack.builder()
                 .name(request.getName())
                 .description(request.getDescription())
+                .extraPersonPricePerNight(request.getExtraPersonPricePerNight() != null  // ✅ NEW
+                        ? request.getExtraPersonPricePerNight()
+                        : BigDecimal.ZERO)
                 .includedFeatures(request.getIncludedFeatures() != null ? request.getIncludedFeatures() : new ArrayList<>())
-                .photos(uploadedPhotos)
+        .photos(uploadedPhotos)
                 .isActive(true)
                 .build();
 
@@ -68,6 +72,12 @@ public class PackService {
 
         pack.setName(request.getName());
         pack.setDescription(request.getDescription());
+
+        if (request.getExtraPersonPricePerNight() != null) {
+            pack.setExtraPersonPricePerNight(request.getExtraPersonPricePerNight());
+        } else {
+            pack.setExtraPersonPricePerNight(BigDecimal.ZERO);
+        }
 
         // ✅ Mettre à jour les prix : supprimer les anciens, ajouter les nouveaux
         if (request.getNightPrices() != null) {
@@ -175,6 +185,7 @@ public class PackService {
                 .id(pack.getId())
                 .name(pack.getName())
                 .description(pack.getDescription())
+                .extraPersonPricePerNight(pack.getExtraPersonPricePerNight())
                 .nightPrices(nightPrices)
                 // ✅ Prix minimum par room type pour affichage "à partir de"
                 .minPriceDortoir(pack.getMinPromoPrice(Room.RoomType.DORTOIR))

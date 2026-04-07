@@ -20,6 +20,9 @@ public class PackRequest {
 
     private String description;
 
+    @DecimalMin(value = "0.0", inclusive = true)
+    private BigDecimal extraPersonPricePerNight = BigDecimal.ZERO;
+
     // ✅ NOUVEAU : liste des prix par nuits
     private List<NightPriceRequest> nightPrices = new ArrayList<>();
 
