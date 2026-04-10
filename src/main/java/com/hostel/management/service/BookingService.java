@@ -156,7 +156,7 @@ public class BookingService {
         Room.RoomType roomType = beds.get(0).getRoom().getRoomType();
         return switch (roomType) {
             case DORTOIR -> beds.size();
-            case SINGLE  -> Math.max(1, Math.min(2, requestedPersons)); // clamp 1–2
+            case SINGLE, DOUBLE -> Math.max(1, Math.min(2, requestedPersons)); // clamp 1–2
             default      -> 1; // DOUBLE: always 1
         };
     }
@@ -192,8 +192,7 @@ public class BookingService {
                 // ✅ totalStayPrice = prix pour 1 lit × N nuits → multiplier par bedCount seulement
                 total = totalStayPrice.multiply(BigDecimal.valueOf(bedCount));
 
-            } else if (rt == Room.RoomType.SINGLE && numberOfPersons > 1) {
-                // ✅ base = prix total déjà (pas × nights)
+            } else if ((rt == Room.RoomType.SINGLE || rt == Room.RoomType.DOUBLE) && numberOfPersons > 1) {
                 BigDecimal base = totalStayPrice;
                 BigDecimal breakfastExtra = BREAKFAST_EXTRA_PER_PERSON_PER_NIGHT
                         .multiply(BigDecimal.valueOf(numberOfNights));
@@ -202,11 +201,9 @@ public class BookingService {
                         : BigDecimal.ZERO)
                         .multiply(BigDecimal.valueOf(numberOfNights));
                 total = base.add(breakfastExtra).add(activitiesExtra);
-                log.info("Pack SINGLE 2 personnes: base={}, breakfast={}, activities={}, total={}",
-                        base, breakfastExtra, activitiesExtra, total);
-
+                log.info("Pack {} 2 personnes: base={}, breakfast={}, activities={}, total={}",
+                        rt, base, breakfastExtra, activitiesExtra, total);
             } else {
-                // ✅ SINGLE (1 personne) ou DOUBLE : prix total direct
                 total = totalStayPrice;
             }
             return total;
@@ -219,13 +216,12 @@ public class BookingService {
         if (rt == Room.RoomType.SINGLE || rt == Room.RoomType.DOUBLE) {
             BigDecimal base = room.getPricePerNight().multiply(BigDecimal.valueOf(numberOfNights));
             total = base;
-            if (rt == Room.RoomType.SINGLE && numberOfPersons > 1) {
-                // Sans pack → pas d'activitiesExtra, seulement le breakfast
+            if (numberOfPersons > 1) {  // ← couvre SINGLE et DOUBLE
                 BigDecimal breakfastExtra = BREAKFAST_EXTRA_PER_PERSON_PER_NIGHT
                         .multiply(BigDecimal.valueOf(numberOfNights));
                 total = base.add(breakfastExtra);
-                log.info("SINGLE sans pack, 2 personnes: base={}, breakfast={}, total={}",
-                        base, breakfastExtra, total);
+                log.info("{} sans pack, 2 personnes: base={}, breakfast={}, total={}",
+                        rt, base, breakfastExtra, total);
             }
         }else {
             // DORTOIR: price × nights × beds
