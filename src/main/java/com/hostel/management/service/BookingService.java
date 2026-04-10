@@ -179,21 +179,22 @@ public class BookingService {
 
         // ── PACK path ──────────────────────────────────────────────────────
         if (pack != null) {
-            BigDecimal pricePerNight = pack.getPromoPrice(rt, (int) numberOfNights);
+            // ✅ Renommé : c'est le prix TOTAL du séjour, pas par nuit
+            BigDecimal totalStayPrice = pack.getPromoPrice(rt, (int) numberOfNights);
 
-            if (pricePerNight.compareTo(BigDecimal.ZERO) == 0) {
+            if (totalStayPrice.compareTo(BigDecimal.ZERO) == 0) {
                 log.warn("Aucun prix trouvé pour {} nuits, roomType={}, pack={}",
                         numberOfNights, rt, pack.getId());
             }
 
             BigDecimal total;
             if (rt == Room.RoomType.DORTOIR) {
-                // DORTOIR: price × nights × beds
-                total = pricePerNight
-                        .multiply(BigDecimal.valueOf(numberOfNights))
-                        .multiply(BigDecimal.valueOf(bedCount));
+                // ✅ totalStayPrice = prix pour 1 lit × N nuits → multiplier par bedCount seulement
+                total = totalStayPrice.multiply(BigDecimal.valueOf(bedCount));
+
             } else if (rt == Room.RoomType.SINGLE && numberOfPersons > 1) {
-                BigDecimal base = pricePerNight.multiply(BigDecimal.valueOf(numberOfNights));
+                // ✅ base = prix total déjà (pas × nights)
+                BigDecimal base = totalStayPrice;
                 BigDecimal breakfastExtra = BREAKFAST_EXTRA_PER_PERSON_PER_NIGHT
                         .multiply(BigDecimal.valueOf(numberOfNights));
                 BigDecimal activitiesExtra = (pack.getExtraPersonPricePerNight() != null
@@ -203,9 +204,10 @@ public class BookingService {
                 total = base.add(breakfastExtra).add(activitiesExtra);
                 log.info("Pack SINGLE 2 personnes: base={}, breakfast={}, activities={}, total={}",
                         base, breakfastExtra, activitiesExtra, total);
-            }else {
-                // SINGLE (1 person) or DOUBLE: fixed price × nights
-                total = pricePerNight.multiply(BigDecimal.valueOf(numberOfNights));
+
+            } else {
+                // ✅ SINGLE (1 personne) ou DOUBLE : prix total direct
+                total = totalStayPrice;
             }
             return total;
         }
