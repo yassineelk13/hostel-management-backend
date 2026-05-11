@@ -79,11 +79,9 @@ public class PackService {
             pack.setExtraPersonPricePerNight(BigDecimal.ZERO);
         }
 
-        // ✅ Mettre à jour les prix : supprimer les anciens, ajouter les nouveaux
         if (request.getNightPrices() != null) {
             pack.getNightPrices().clear();
-            packRepository.saveAndFlush(pack);// flush orphans
-
+            packRepository.saveAndFlush(pack);
             for (PackRequest.NightPriceRequest npr : request.getNightPrices()) {
                 PackNightPrice nightPrice = PackNightPrice.builder()
                         .pack(pack)
@@ -102,13 +100,27 @@ public class PackService {
         }
 
         if (request.getPhotos() != null) {
+            // ✅ Garde seulement les URLs Cloudinary valides (http)
+            List<String> keptUrls = request.getPhotos().stream()
+                    .filter(p -> p != null && p.startsWith("http"))
+                    .collect(Collectors.toList());
+
+            // ✅ Supprime SEULEMENT les photos retirées par l'utilisateur
             if (pack.getPhotos() != null) {
-                pack.getPhotos().forEach(photoUrl -> {
-                    try { cloudinaryService.deleteImage(photoUrl); }
-                    catch (Exception e) { log.warn("Failed to delete old pack photo: {}", photoUrl); }
+                pack.getPhotos().forEach(oldUrl -> {
+                    if (!keptUrls.contains(oldUrl)) {
+                        try {
+                            cloudinaryService.deleteImage(oldUrl);
+                            log.info("Photo pack supprimée de Cloudinary: {}", oldUrl);
+                        } catch (Exception e) {
+                            log.warn("Échec suppression photo pack: {}", oldUrl);
+                        }
+                    }
                 });
             }
-            pack.setPhotos(uploadPhotosToCloudinary(request.getPhotos(), "shamshouse/packs"));
+
+            // ✅ Les nouvelles photos sont déjà uploadées côté frontend
+            pack.setPhotos(keptUrls);
         }
 
         return packRepository.save(pack);
